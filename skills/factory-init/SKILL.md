@@ -1,0 +1,29 @@
+---
+name: factory-init
+description: Set a repository up as a dark factory - writes or updates the Collaboration section of AGENTS.md and the Delegation section of CLAUDE.md from the plugin's templates, creates the labels and .factory.json, and checks that the project board has the seven columns. Use when the owner says "init the factory", "make this repo a dark factory", "/factory-init" or adds the plugin to a new repo.
+---
+
+# Init: make a repository a dark factory
+
+Run inside the target repository. Needs `gh` ( with the `project` scope: `gh auth refresh -s project` ), `jq`, `python3`.
+
+## Steps
+
+1. **Find the board.** `gh project list --owner <owner>`. If there is none, create it ( `gh project create --owner <owner> --title "<Repo> board"` ), link it to the repo ( `gh project link <n> --owner <owner> --repo <owner>/<repo>` ) and make sure its **Status** single-select field has the seven options of the chosen language preset: `en` Epics, Backlog, Ready, In Progress (Human), In Progress (Agent), In Review, Done; `de` Epics, Backlog, Bereit, In Arbeit (Mensch), In Arbeit (Agent), Zur Review, Fertig. The CLI cannot add options to the built-in Status field: tell the owner to add them under Project settings > Status when `board.sh ids` reports MISSING. If the board uses other names, put them in `.factory.json` under `columns`.
+2. **Ask the owner at once, in one message:** project number; language preset ( `en` or `de` ); the verify command ( what proves a change works: build, tests, typecheck, smoke test ); how to run the repo locally ( the line for the ticket's "local:" ); umbrella branches in use; the owner's own dev server port, if any; anything repo-specific to add to the Collaboration section. The owner handle and name default to the repository's owner on GitHub.
+3. **Run the script:**
+
+   ```
+   ${CLAUDE_PLUGIN_ROOT}/scripts/init.sh --project <n> [--lang en|de] [--owner <handle>] [--name "<Full Name>"] \
+       --verify "<verify command>" --run "<local run command>" [--umbrella "feat/a, feat/b"] [--dry-run] [--replace-existing]
+   ```
+
+   - `--dry-run` prints the rendered sections and writes nothing.
+   - The sections are written between `<!-- factory:collaboration:start/end -->` and `<!-- factory:delegation:start/end -->` markers, so running it again updates them in place and leaves the rest of the file alone. A pre-existing `## Collaboration` section without markers is only replaced with `--replace-existing`; repo-specific items of the old section are moved to a `### Repo-specific` subsection and printed ( review them ).
+   - It writes `.factory.json` ( project, owner, reviewer, lang, verify list, umbrella ), creates the labels of the preset ( `idea` / `idee`, `feature`, `bug`, `documentation`, `merged` / `gemergt` ), and runs `board.sh ids`, which prints the Status field id and option ids and exits 1 if a column is missing.
+4. **Check:** `CLAUDE.md` must import `AGENTS.md` ( `@AGENTS.md` ) so Claude Code reads the Collaboration section ( Cursor and Antigravity read AGENTS.md directly ). Add repo-specific facts the templates cannot know ( ports, where the plan lives, the deploy command ) outside the markers, under `### Repo-specific`. Read the generated text once.
+5. **Commit** on a branch or `main` as the owner prefers: `docs: add dark-factory collaboration rules`. Do not move cards or create tickets as part of init.
+
+## Templates
+
+`templates/<lang>/AGENTS.collaboration.md` and `templates/<lang>/CLAUDE.delegation.md`. Placeholders: `{{OWNER}}` ( handle ), `{{OWNER_NAME}}`, `{{PROJECT}}`, `{{PROJECT_NAME}}`, `{{PROJECT_URL}}`, `{{VERIFY}}`, `{{LOCAL_RUN}}`, `{{UMBRELLA_NOTE}}`, `{{TRANSCRIPT_DIR}}`, `{{PLUGIN_URL}}`. To adapt the rules for one repository only, edit the generated section's text inside that repository and drop the markers ( init then needs `--replace-existing` to touch it again ). To change a rule for every repository, change the template here and bump the plugin version ( upstream first ).

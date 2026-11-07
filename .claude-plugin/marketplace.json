@@ -1,0 +1,12 @@
+{
+  "name": "agentkit",
+  "owner": { "name": "AgentKit maintainers", "url": "https://github.com/niklasbrandt/agentkit" },
+  "plugins": [
+    {
+      "name": "agentkit",
+      "source": "./",
+      "description": "AgentKit: run any repository as a dark factory. Kanban board workflow, orchestrator loop and repo init for Claude Code.",
+      "version": "0.5.0"
+    }
+  ]
+}

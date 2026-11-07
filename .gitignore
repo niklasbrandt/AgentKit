@@ -1,0 +1,4 @@
+node_modules/
+.DS_Store
+# your private list of the repositories that use the plugin ( see README, "Upstream first" )
+REPOS.local.md
