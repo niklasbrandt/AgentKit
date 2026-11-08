@@ -83,6 +83,7 @@ names an umbrella branch ( stacked work{{UMBRELLA_NOTE}} ): then branch from tha
 - Bring `main` in by merging it into the branch, never by rebasing a pushed branch. No force-push.
 - **Merge, test, push in one chain with `&&`**, never with `;`: `git merge … && <verify> && git push …`. A push must never go out before the test result is read.
 - A deploy is finished when the served page has been read back and names this build's entry file, not when the upload returns. Deploy scripts upload the entry page every time.
+- A deploy ships the built site and static assets, nothing else: **never an executable server-side file** ( PHP, CGI, shell scripts, handlers in `.htaccess` ), not even briefly, and no server configuration or new credentials. Free space and quotas come from the server's own FTP commands, from {{OWNER_NAME}}'s control panel, or are reported as unknown so {{OWNER_NAME}} decides.
 - A build must leave the working tree clean. A file a build regenerates is either ignored or committed, never left dirty at merge time.
 - Generated data of any size ( tiles, caches, renders, datasets ) stays out of git: ignore it and write where it lives and how it is rebuilt into the ticket. Hosting it is {{OWNER_NAME}}'s decision.
 - Branches werden aufgeräumt, sobald die Karte in Fertig ist ( bis dahin kann {{OWNER_NAME}} noch Änderungen verlangen ): Remote-Branch löschen ( `git push origin --delete <branch>` ), lokale Worktrees entfernen ( `git worktree remove` ).

@@ -47,6 +47,7 @@ Stop and ask only for these, and keep working on everything else:
 - money, accounts, credentials, server settings, hardware, external assets ( such a ticket goes to In Progress (Human), assigned to them )
 - canon-like world facts: anything that decides what is true in the product's world, story or domain ( the repo says where its canon lives )
 - hosting of large generated data ( where gigabytes of tiles, renders or datasets live; the builder keeps them out of git and local )
+- anything on a server beyond uploading the built site and static assets: **no executable server-side files ever** ( no PHP, CGI, shell scripts, handlers in `.htaccess` ), no server configuration, no new credentials or keys; free space and quotas come from the FTP server's own commands, from the owner's control panel, or are reported as unknown
 - removing what they specified, deleting a sub-ticket, reordering the Backlog
 - anything on the hands-off list
 - decisions only they can make ( taste, legal, naming of a public thing ), but only where an assumption would be irreversible or expensive to undo; otherwise assume, record under **Assumptions** and keep going
@@ -67,6 +68,17 @@ Monitor( command: "${CLAUDE_PLUGIN_ROOT}/scripts/watch.sh 31 32 33", description
 - **Compaction.** The conversation may be summarised at any time. Keep nothing only in the chat: the queue memo, the tickets ( review comments, assumptions, merged lines ) and the branches hold the state. `ListAgents` returns the builders' handles afterwards. Compact between reviews, not in the middle of one.
 - **Subagents end with the session.** Background subagents die when the session that started them ends. Work that must outlive it ( hours of builds, a night run ) goes into a **separate session** ( `claude -p "<prompt>"` in its worktree, under `caffeinate` ), with its transcript watched through `watch.sh`. Before ending, make sure nothing is left half-merged: every agent's work is committed and pushed, every card is in the right column, `caffeinate` is stopped, dev servers you started are stopped by PID.
 
-## 5. Checklist per ticket
+## 5. Budget: the usage window
+
+The account's usage limit is a token budget per 5-hour window, shared by the orchestrator and every builder. Parallelism changes when the window runs out, not how much gets built per window; the model mix and the tokens per ticket do.
+
+- **Six builders at once** is the default ( not eight ): six last the whole window, eight empty it in about three hours and then everything idles until the reset.
+- **Model mix:** Opus tokens weigh several times Sonnet tokens against the window. Sonnet `medium` for mechanical tickets ( a bug with a known cause, sounds, small UI, bookkeeping, docs ); Opus `high` for milestones and anything with judgement; `xhigh` only for foundations. Roughly a third of a board's tickets are Sonnet work.
+- **The orchestrator's own share is small** next to a builder ( a builder spends 200k–700k tokens on a ticket ); do not downgrade the orchestrator to save budget.
+- **Trim the builder prompts:** quick verify by default, the full verify only when sky, terrain or post-processing is touched; capture sets only where the acceptance names them; no re-measuring performance on a loaded machine ( record "not provable, machine loaded" and queue a quiet-machine re-measure instead ).
+- **When the window runs out** every builder stops with its state committed; resume each with a message after the reset ( section 4 ). Merge and deploy what is finished before the window runs out, not after.
+- Before a night run, start the big tickets first so they get the longest uninterrupted stretch.
+
+## 6. Checklist per ticket
 
 card in In Progress (Agent) -> branch + worktree + install + ports -> subagent with model and effort -> verify green -> assumptions read and surfaced -> merged tree verified -> merged and pushed in one chain -> deployed and read back ( if the repo deploys ) -> `merged` line + label -> review comment on the ticket -> In Review -> queue memo updated -> next ticket.

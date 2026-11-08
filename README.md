@@ -104,6 +104,8 @@ These are in the templates and skills; the short version:
 - **Usage limits pause builders; they do not kill them.** Resume each with a message after the window resets.
 - **Ask for a hands-off list at kickoff**: areas the owner wants to decide in person first; do not touch them, not even with drafts.
 - **Never two performance measurements at once.**
+- **Six builders at once, Sonnet for the mechanical tickets.** The usage limit is a shared token budget per window; eight Opus builders empty it in three hours and idle for two.
+- **Nothing executable on a server, ever.** A deploy ships the built site and static assets; free space comes from FTP commands, the owner's panel, or is reported as unknown.
 
 ## Changelog and licence
 
