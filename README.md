@@ -15,11 +15,11 @@ It is three skills, a handful of shell scripts and two templates. Nothing in it 
 ## Install
 
 ```bash
-claude plugin marketplace add niklasbrandt/agentkit
+claude plugin marketplace add niklasbrandt/AgentKit
 claude plugin install agentkit@agentkit
 ```
 
-Inside Claude Code: `/plugin marketplace add niklasbrandt/agentkit`, then `/plugin install agentkit@agentkit`. To try a checkout without installing: `claude --plugin-dir <path to this repo>`.
+Inside Claude Code: `/plugin marketplace add niklasbrandt/AgentKit`, then `/plugin install agentkit@agentkit`. To try a checkout without installing: `claude --plugin-dir <path to this repo>`.
 
 Requirements: `gh` (once: `gh auth refresh -s project`), `jq`, `python3`. `node` plus `puppeteer-core` and a Chrome only for `picdiff.mjs`.
 

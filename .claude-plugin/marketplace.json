@@ -1,6 +1,6 @@
 {
   "name": "agentkit",
-  "owner": { "name": "AgentKit maintainers", "url": "https://github.com/niklasbrandt/agentkit" },
+  "owner": { "name": "AgentKit maintainers", "url": "https://github.com/niklasbrandt/AgentKit" },
   "plugins": [
     {
       "name": "agentkit",
