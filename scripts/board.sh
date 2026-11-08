@@ -7,6 +7,7 @@
 #   board.sh add <issue-url> "<column>"   put an issue on the board in a column
 #   board.sh move <issue> "<column>"      move a card; to In Review it also assigns the ticket's author, out of it removes that assignee
 #   board.sh merged <issue> <sha> <branch>   add the line "**Merged:** <sha> in <branch>", the label and the author as assignee
+#   board.sh tidy                         take cards without a column off the board when their issue is a sub-issue of a package ( GitHub's auto-add puts them back )
 # Settings come from .factory.json at the repo root ( or $FACTORY_JSON ). "project" is required, the rest optional:
 #   { "project": 1, "owner": "<GitHub handle; default: the repo's owner>", "reviewer": "<default: owner>", "repo": "owner/name",
 #     "lang": "en" | "de"    ( preset for column names, labels and wording; see lang.sh; default en ),
@@ -157,8 +158,18 @@ cmd_merged() {
 	echo "#$n: $T_MERGED $sha in $br, label $L_MERGED, assignee $author"
 }
 
+cmd_tidy() {
+	local r; r=$( repo )
+	items | jq -r '.items[] | select( ( .status // "" ) == "" and .content.type == "Issue" ) | [ .id, .content.number ] | @tsv' | while IFS=$'\t' read -r id n; do
+		if [ "$( gh api "repos/$r/issues/$n/parent" --jq .number 2>/dev/null )" != "" ]; then
+			gh project item-delete "$PROJECT" --owner "$OWNER" --id "$id" >/dev/null && echo "#$n off the board ( sub-issue )"
+		fi
+	done
+}
+
 sub=${1:-help}; [ $# -gt 0 ] && shift
 case "$sub" in
+	tidy) cmd_tidy ;;
 	ids) cmd_ids "$@" ;;
 	list) cmd_list "$@" ;;
 	next) cmd_next ;;
@@ -166,5 +177,5 @@ case "$sub" in
 	add) cmd_add "$@" ;;
 	move) cmd_move "$@" ;;
 	merged) cmd_merged "$@" ;;
-	*) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; [ "$sub" = help ] || exit 2 ;;
+	*) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; [ "$sub" = help ] || exit 2 ;;
 esac
