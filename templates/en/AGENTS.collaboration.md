@@ -72,7 +72,7 @@ reviewer sees at once what to look at again. Closed tickets keep the same short 
 
 ### Branches
 
-One ticket, one branch, one git worktree; never bundle tickets. The branch name contains the ticket id:
+One ticket or one **work package**, one branch, one git worktree; never bundle unrelated tickets. A work package is one card per topic ( the owner sorts topics, not dozens of cards ) whose detail tickets are its sub-issues off the board: one builder, one branch, one verify, one merge, one deploy, while every sub-issue keeps its own checks, Assumptions, numbers and a `**Merged:**` line with the package's merge sha. Before opening a ticket, search the open ones for overlap and extend an existing one instead of creating a twin. The branch name contains the ticket id:
 `feat/<id>-<short-slug>`, `fix/<id>-…`, `ci/<id>-…`, `docs/<id>-…`. Branch from the current `main`, unless the ticket or its epic
 names an umbrella branch ( stacked work{{UMBRELLA_NOTE}} ): then branch from that and merge back into it. An umbrella branch and `main` are merged into each other once per batch of tickets, with the verify command run on the merged tree each time.
 

@@ -1,7 +1,7 @@
 {
   "name": "agentkit",
   "description": "AgentKit: run any repository as a dark factory. Agents take tickets from a GitHub Projects kanban board, build, verify, merge and hand back for review; an orchestrating session starts the next tickets itself.",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "author": { "name": "AgentKit maintainers", "url": "https://github.com/niklasbrandt/AgentKit" },
   "repository": "https://github.com/niklasbrandt/AgentKit",
   "license": "MIT",

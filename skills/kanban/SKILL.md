@@ -41,6 +41,8 @@ Read from the repo root. `project` is required, the rest is optional. `factory-i
 Rules:
 
 - Take the next ticket from the top of **Ready**, else from the top of **Backlog**. Never reorder either. `board.sh next` prints it.
+- **Before creating a ticket, search the open ones for overlap** ( `gh issue list --search "<words> in:title"` and the Ready / Backlog columns ). Same files and the same goal: extend the existing ticket ( a new section, a "Changed after review" section if it is in review ) instead of opening a second one. Two halves of one problem are one ticket.
+- **Work packages ( topic cards ).** Tickets that share files or an order are grouped into one package ticket per topic: it is the only card on the board, the owner sorts topics, not dozens of cards. The detail tickets become its sub-issues ( `POST /repos/{o}/{r}/issues/{n}/sub_issues`, or a checklist of `#n` links ) and leave the board. One package = one builder, one branch, one worktree, one verify, one merge, one deploy. Every sub-issue keeps its own checks, **Assumptions**, numbers comment and a `**Merged:** <sha>` line with the package's merge; the package card carries one box per sub-issue plus the verify / deploy box and goes to In Review when all are done. A sub-issue that needs another base ( `main` instead of the umbrella ) gets its own branch inside the package. Packages are cut by the orchestrator when the owner approves them; the owner can still pull a single sub-issue out and put it on the board.
 - Read a card's current status before moving it. Agents move cards only to Ready, In Progress (Agent) or In Review.
 - Every change request the owner mentions goes into its ticket and onto the board right away: update the checklist or open a new short ticket, and move the card back to In Progress (Agent) if it was in review. Never keep working on a ticket in In Review: move it back first and remove the review assignee.
 - A card goes to In Review only once its branch is pushed, and is assigned to the ticket's author immediately ( `board.sh move` does both ).
@@ -82,7 +84,7 @@ Tickets are written in the repository's ticket language ( the `lang` preset ); d
 
 ## Branches
 
-One ticket, one branch, one git worktree; never bundle tickets. Name: `<type>/<id>-<short-slug>` with type `feat`, `fix`, `ci`, `docs` ( also `refactor`, `chore` ). The id is the ticket's number. Commits are Conventional Commits with scopes, e.g. `feat(scope): ...`.
+One ticket or one work package, one branch, one git worktree; never bundle unrelated tickets. Name: `<type>/<id>-<short-slug>` ( a package: `feat/<package id>-package-<slug>` ) with type `feat`, `fix`, `ci`, `docs` ( also `refactor`, `chore` ). The id is the ticket's number. Commits are Conventional Commits with scopes, e.g. `feat(scope): ...`.
 
 - Branch from the current `main`, unless the ticket or its epic names an **umbrella branch** ( stacked work: a long-lived branch that collects an epic's tickets ): then branch from that and merge back into it. The umbrella and `main` are merged into each other once per batch of tickets, with the verify command on the merged tree each time; the umbrella itself reaches `main` when the owner says so.
 - Commit work in progress early and often; a restarted session must not lose it.

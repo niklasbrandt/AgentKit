@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.2
+
+- Work packages: one card per topic on the board, detail tickets as sub-issues off the board, one builder / branch / verify / merge / deploy per package while every sub-issue keeps its checks, assumptions, numbers and merged line (kanban and factory skills, both templates).
+- Overlap search before creating a ticket: extend an existing ticket instead of opening a twin.
+
 ## 0.5.1
 
 - Budget section in the factory skill and the delegation templates: six builders at once, Sonnet for mechanical tickets, Opus for milestones, trimmed verification, behaviour at the usage window.
