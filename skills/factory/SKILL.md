@@ -78,6 +78,15 @@ The account's usage limit is a token budget per 5-hour window, shared by the orc
 - **Trim the builder prompts:** quick verify by default, the full verify only when sky, terrain or post-processing is touched; capture sets only where the acceptance names them; no re-measuring performance on a loaded machine ( record "not provable, machine loaded" and queue a quiet-machine re-measure instead ).
 - **When the window runs out** every builder stops with its state committed; resume each with a message after the reset ( section 4 ). Merge and deploy what is finished before the window runs out, not after.
 - Before a night run, start the big tickets first so they get the longest uninterrupted stretch.
+- **No new builder in the last hour of a window**: it would pay its read-in twice.
+
+## 5a. Squeezing the budget: two phases, locks, reads
+
+- **Two-phase builders.** A ticket is built by an Opus builder and finished by a Sonnet finisher. The builder designs, implements, runs the fast checks and stops when its own acceptance passes, with a short handover in the ticket: branch, what changed, what to verify, where the captures go. The finisher ( Sonnet `medium` ) takes the branch and the acceptance list, runs the full verify, takes the captures, writes the ticket ( checks, numbers, assumptions as the builder left them ), merges with the lock, deploys and reports. About a third of a ticket's tokens are that tail, and Opus tokens weigh several times Sonnet's. Skip the split only for tickets under an hour.
+- **Merge lock.** One local lock around merge → verify → push ( `scripts/mergelock.sh <cmd>` in the plugin, or the repo's own ): a builder waits for the lock instead of re-verifying because the umbrella moved under it. Waiting is free; a second verify is not.
+- **Read by range, never whole.** Files over ~40 KB are read with grep and line ranges; a generated module map ( function names and line ranges per file, refreshed by verify ) tells a builder where to look. Reading a 300 KB file whole costs 80k tokens, and builders used to do it several times a ticket.
+- **Trim tool output.** Tail and summarise logs; verify prints a one-screen summary; capture lists go to a file, not the transcript.
+- **Context packs, not plans.** The prompt names the exact plan sections and done lines a ticket needs; a builder does not read a whole plan.
 
 ## 6. Checklist per ticket
 

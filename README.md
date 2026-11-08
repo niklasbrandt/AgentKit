@@ -59,6 +59,7 @@ All in `scripts/`, called by path (`${CLAUDE_PLUGIN_ROOT}/scripts/...` inside Cl
 | `run.sh <timeout s> <cmd...>` | Watchdog: TERM after the timeout, then kills orphaned headless Chromes. Also for a dev server in the background. |
 | `verify-report.sh [--quick]` | Runs the `verify` list of `.factory.json` and prints a ticket section with PASS / FAIL per check. |
 | `picdiff.mjs <A> <B> [--out dir] [--fail pct]` | Share of differing pixels between two captures or folders, decoded in headless Chrome, no image library. |
+| `mergelock.sh <cmd...>` | One lock per repository around merge, verify and push: a second builder waits instead of verifying twice. |
 | `watch.sh [issue ...]` | One line per change (card column, assignees, labels; session transcripts going quiet or appearing) for Claude Code's Monitor tool. |
 
 ## `.factory.json`
@@ -104,6 +105,8 @@ These are in the templates and skills; the short version:
 - **Usage limits pause builders; they do not kill them.** Resume each with a message after the window resets.
 - **Ask for a hands-off list at kickoff**: areas the owner wants to decide in person first; do not touch them, not even with drafts.
 - **Never two performance measurements at once.**
+- **Two phases per ticket.** Opus builds, a Sonnet finisher verifies, captures, writes the ticket, merges under the lock and deploys: a third of the tokens at a fifth of the price.
+- **Read by range, never whole.** A generated module map tells builders where to look in big files.
 - **Six builders at once, Sonnet for the mechanical tickets.** The usage limit is a shared token budget per window; eight Opus builders empty it in three hours and idle for two.
 - **Work packages, not forty cards.** Tickets that share files become one topic card with sub-issues; the owner sorts topics, one builder runs the package on one branch, every sub-issue keeps its own checks and merged line.
 - **Search before you file.** Two halves of one problem are one ticket; extend, don't duplicate.

@@ -81,6 +81,7 @@ names an umbrella branch ( stacked work{{UMBRELLA_NOTE}} ): then branch from tha
 - Squash only onto the branch's own base ( `git reset --soft $( git merge-base HEAD origin/main )` ), never onto an
   `origin/main` that a fetch has moved: the squashed tree would silently undo what was merged meanwhile.
 - Bring `main` in by merging it into the branch, never by rebasing a pushed branch. No force-push.
+- Merge, verify and push run under the plugin's merge lock ( `scripts/mergelock.sh` ), one builder at a time per repository, so nobody verifies twice because the branch moved.
 - **Merge, test, push in one chain with `&&`**, never with `;`: `git merge … && <verify> && git push …`. A push must never go out before the test result is read.
 - A deploy is finished when the served page has been read back and names this build's entry file, not when the upload returns. Deploy scripts upload the entry page every time.
 - A deploy ships the built site and static assets, nothing else: **never an executable server-side file** ( PHP, CGI, shell scripts, handlers in `.htaccess` ), not even briefly, and no server configuration or new credentials. Free space and quotas come from the server's own FTP commands, from {{OWNER_NAME}}'s control panel, or are reported as unknown so {{OWNER_NAME}} decides.
