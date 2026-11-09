@@ -44,7 +44,7 @@ claude                                          # then: "run the factory" or /fa
 | Skill | What it is |
 |---|---|
 | `kanban` | The board workflow: columns, who moves what, assignees, labels, the ticket template, branch naming, umbrella branches, cleanup after Done, and the exact `gh` commands (`scripts/board.sh`). |
-| `factory` | The orchestrator loop: take the top of Ready, one background subagent per ticket with its own branch, worktree, ports, model and effort, review with the verify command, merge, hand the card to In Review marked `merged`, start the next. Includes the rules learned in production: merge-test-push chains, the queue memo, usage-limit pauses, compaction, review findings as tickets. |
+| `factory` | The orchestrator loop: take the top of Ready, one background subagent per ticket with its own branch, worktree, ports, model and effort, review with the verify command, merge, hand the card to In Review marked `merged`, start the next. Includes the rules learned in production: merge-test-push chains, the `STATE.md` state sheet, shift leads, usage-limit pauses, headless checks, compaction, review findings as tickets. |
 | `factory-init` | Writes the Collaboration section of AGENTS.md and the Delegation section of CLAUDE.md from `templates/<lang>/`, creates labels and `.factory.json`, checks the board's columns. |
 
 ## Scripts
@@ -53,10 +53,10 @@ All in `scripts/`, called by path (`${CLAUDE_PLUGIN_ROOT}/scripts/...` inside Cl
 
 | Script | Does |
 |---|---|
-| `board.sh ids \| list \| next \| status <n> \| add <url> "<col>" \| move <n> "<col>" \| merged <n> <sha> <branch>` | Board operations with the guards built in: never sets Done, never touches a card in Done, assigns the author on In Review. |
+| `board.sh ids \| list \| next \| status <n> \| add <url> "<col>" \| move <n> "<col>" \| merged <n> <sha> <branch> \| tidy \| state` | Board operations with the guards built in: never sets Done, never touches a card in Done, assigns the author on In Review. `state` prints a draft of `STATE.md` from the board. |
 | `init.sh` | What `factory-init` runs. Idempotent: sections are replaced between `<!-- factory:...:start/end -->` markers. |
 | `lang.sh` | The `en` and `de` presets for column names, labels and ticket wording. Sourced by the other scripts. |
-| `run.sh <timeout s> <cmd...>` | Watchdog: TERM after the timeout, then kills orphaned headless Chromes. Also for a dev server in the background. |
+| `run.sh <timeout s> <cmd...>` | Watchdog: TERM after the timeout, then kills orphaned headless Chromes. Waits first while `headlessCap` headless browsers run or the load is above the core count. Also for a dev server in the background. |
 | `verify-report.sh [--quick]` | Runs the `verify` list of `.factory.json` and prints a ticket section with PASS / FAIL per check. |
 | `picdiff.mjs <A> <B> [--out dir] [--fail pct]` | Share of differing pixels between two captures or folders, decoded in headless Chrome, no image library. |
 | `mergelock.sh <cmd...>` | One lock per repository around merge, verify and push: a second builder waits instead of verifying twice. |
@@ -76,6 +76,7 @@ Lives at the repo root. `project` is required; everything else has a default.
   "verify": [ { "name": "Build", "cmd": "npm run build" },
               { "name": "Pictures", "cmd": "node picdiff.mjs before after --fail 6", "slow": true } ],
   "umbrella": [],
+  "headlessCap": 3,
   "columns": { "ready": "Ready" },
   "labels": { "merged": "merged" },
   "terms": { "mergedLine": "Merged" }
@@ -101,7 +102,9 @@ These are in the templates and skills; the short version:
 - **New worktrees need their dependencies installed** before any check runs in them.
 - **Review findings become tickets**, not side fixes: a flaw found while reviewing ticket A beyond its scope gets its own short ticket.
 - **Numbers, not adjectives.** Performance, precision and look changes get the measured before and after in a comment; plan milestones get a dated done line with those numbers.
-- **The orchestrator's state lives outside the conversation**: a queue memo (running builders with ports and worktrees, queued tickets in dependency order, which tickets must not run at once), the tickets, the branches. The conversation can be compacted at any time.
+- **The orchestrator keeps `STATE.md`** (gitignored): running agents, waits, queue, open owner decisions, limits, last hand-backs, notes, rewritten at every hand-back, spawn and owner decision. Long sessions lost exactly what was in no ticket.
+- **A fresh session reads `STATE.md`, then `board.sh state`**, and never asks the owner to open a new one: compaction plus the sheet is lossless, and shift-lead subagents keep the root session thin.
+- **Headless checks never touch the owner's machine**: muted, windowless, no audio context, one launcher, at most three at once and none above the core count in load. A muted headless browser that opened an audio context still made the owner's speakers pop.
 - **Usage limits pause builders; they do not kill them.** Resume each with a message after the window resets.
 - **Ask for a hands-off list at kickoff**: areas the owner wants to decide in person first; do not touch them, not even with drafts.
 - **Never two performance measurements at once.**

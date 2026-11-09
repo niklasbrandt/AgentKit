@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Writes or updates the Collaboration section of AGENTS.md and the Delegation section of CLAUDE.md of the repo you run it in, from the plugin's
-# templates ( templates/<lang>/ ), creates the labels and .factory.json, and checks the board's columns.
+# templates ( templates/<lang>/ ), creates the labels and .factory.json, checks the board's columns, adds STATE.md ( the orchestrator's
+# state sheet, local to the machine ) to .gitignore and creates its skeleton if missing.
 #   init.sh [--project <n>] [--owner <handle>] [--name "<Full Name>"] [--lang en|de] [--verify "<cmd>"] [--run "<local run cmd>"]
 #           [--umbrella "<branch, branch>"] [--replace-existing] [--dry-run]
 # Existing values in .factory.json are the defaults for omitted flags; the owner defaults to the repository's owner on GitHub.
@@ -23,7 +24,7 @@ REPO=$( gh repo view --json nameWithOwner --jq .nameWithOwner )
 [ -n "$NAME" ] || NAME=$( gh api "users/$OWNER" --jq '.name // .login' 2>/dev/null || echo "$OWNER" )
 [ -n "$PROJECT" ] || { echo "init.sh: --project <number> is required ( gh project list --owner $OWNER )" >&2; exit 2; }
 LANG_OPT=${LANG_OPT:-en}
-[ -d "$PLUGIN/templates/$LANG_OPT" ] || { echo "init.sh: no templates for --lang $LANG_OPT ( available: $( ls "$PLUGIN/templates" | tr '\n' ' ' ))" >&2; exit 2; }
+[ -d "$PLUGIN/templates/$LANG_OPT" ] || { echo "init.sh: no templates for --lang $LANG_OPT ( available: $( cd "$PLUGIN/templates" && ls -d */ | tr -d / | tr '\n' ' ' ))" >&2; exit 2; }
 [ -n "$VERIFY" ] || VERIFY="npm run build"
 [ -n "$RUN" ] || RUN="npm install && npm run dev"
 PNAME=$( gh project view "$PROJECT" --owner "$OWNER" --format json --jq .title )
@@ -104,7 +105,12 @@ PY
 }
 
 TMP=$( mktemp -d ); render "$PLUGIN/templates/$LANG_OPT/AGENTS.collaboration.md" > "$TMP/a.md"; render "$PLUGIN/templates/$LANG_OPT/CLAUDE.delegation.md" > "$TMP/c.md"
-if [ $DRY = 1 ]; then cat "$TMP/a.md" "$TMP/c.md"; echo "--- dry run: nothing written" >&2; rm -rf "$TMP"; exit 0; fi
+if [ $DRY = 1 ]; then
+	cat "$TMP/a.md" "$TMP/c.md"
+	grep -qx 'STATE.md' "$ROOT/.gitignore" 2>/dev/null || echo "would add STATE.md to .gitignore" >&2
+	[ -f "$ROOT/STATE.md" ] || echo "would create STATE.md from templates/STATE.md" >&2
+	echo "--- dry run: nothing written" >&2; rm -rf "$TMP"; exit 0
+fi
 
 rc=0
 install "$ROOT/AGENTS.md" Collaboration collaboration "$TMP/a.md" || rc=1
@@ -112,11 +118,18 @@ install "$ROOT/CLAUDE.md" "Delegation (Claude Code)" delegation "$TMP/c.md" || r
 grep -q '@AGENTS.md' "$ROOT/CLAUDE.md" 2>/dev/null || echo "note: CLAUDE.md does not import AGENTS.md ( add a line @AGENTS.md ) so Claude Code reads the Collaboration section" >&2
 rm -rf "$TMP"
 
+# STATE.md: the orchestrator's state sheet, gitignored, never overwritten
+if ! grep -qx 'STATE.md' "$ROOT/.gitignore" 2>/dev/null; then
+	{ [ ! -s "$ROOT/.gitignore" ] || [ -z "$( tail -c 1 "$ROOT/.gitignore" )" ] || echo; printf '# the orchestrator'"'"'s state sheet ( AgentKit ), local to this machine\nSTATE.md\n'; } >> "$ROOT/.gitignore"
+	echo "added STATE.md to .gitignore"
+fi
+[ -f "$ROOT/STATE.md" ] || { cp "$PLUGIN/templates/STATE.md" "$ROOT/STATE.md" && echo "created STATE.md"; }
+
 # .factory.json: keep what is there, set what is known
 BASE='{}'; [ -f "$CFG" ] && BASE=$( cat "$CFG" )
 echo "$BASE" | jq --argjson p "$PROJECT" --arg o "$OWNER" --arg n "$NAME" --arg l "$LANG_OPT" --arg run "$RUN" --arg v "$VERIFY" --arg u "$UMB" '
 	.project = $p | .owner = $o | .ownerName = $n | .lang = $l | .reviewer = (.reviewer // $o) | .localRun = $run
-	| .verify = (.verify // [ { name: "Build", cmd: $v } ])
+	| .verify = (.verify // [ { name: "Build", cmd: $v } ]) | .headlessCap = (.headlessCap // 3)
 	| .umbrella = (.umbrella // ( if $u == "" then [] else ( $u | split(", ") ) end ) )' > "$CFG.tmp" && mv "$CFG.tmp" "$CFG"
 echo "wrote $CFG"
 

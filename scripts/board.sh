@@ -8,12 +8,14 @@
 #   board.sh move <issue> "<column>"      move a card; to In Review it also assigns the ticket's author, out of it removes that assignee
 #   board.sh merged <issue> <sha> <branch>   add the line "**Merged:** <sha> in <branch>", the label and the author as assignee
 #   board.sh tidy                         take cards without a column off the board when their issue is a sub-issue of a package ( GitHub's auto-add puts them back )
+#   board.sh state [--json]               a draft of STATE.md from the board: running, queue, owner's cards, last hand-backs, cards without a column ( read-only )
 # Settings come from .factory.json at the repo root ( or $FACTORY_JSON ). "project" is required, the rest optional:
 #   { "project": 1, "owner": "<GitHub handle; default: the repo's owner>", "reviewer": "<default: owner>", "repo": "owner/name",
 #     "lang": "en" | "de"    ( preset for column names, labels and wording; see lang.sh; default en ),
 #     "columns": { "epics": "Epics", "backlog": "Backlog", "ready": "Ready", "human": "In Progress (Human)",
 #                  "agent": "In Progress (Agent)", "review": "In Review", "done": "Done" },
-#     "labels": { "merged": "merged" }, "terms": { "mergedLine": "Merged" } }
+#     "labels": { "merged": "merged" }, "terms": { "mergedLine": "Merged" },
+#     "headlessCap": 3       ( concurrent headless browsers on this machine; shown under Limits by state, enforced by run.sh ) }
 # Guards: agents never move a card to Done and never touch a card that already is in Done ( set FACTORY_OWNER=1 to lift this, for the owner ).
 set -euo pipefail
 
@@ -167,9 +169,71 @@ cmd_tidy() {
 	done
 }
 
+# state [--json]: the parts of STATE.md the board knows; agents, ports and worktrees are the orchestrator's to fill in.
+# Calls: one gh project item-list ( GraphQL ), one gh api for the newest 30 issues with the merged label ( REST: body and date ).
+# If the GraphQL call fails ( rate limit ), the REST part is still printed.
+cmd_state() {
+	local json=0; [ "${1:-}" = "--json" ] && json=1
+	local r all merged cap load cores now
+	r=$( repo )
+	all=$( items 2>/dev/null ) || all=""
+	merged=$( gh api "repos/$r/issues?labels=$( jq -rn --arg l "$L_MERGED" '$l | @uri' )&state=all&sort=updated&direction=desc&per_page=30" 2>/dev/null \
+		| jq --arg tm "**$T_MERGED:**" '[ .[] | { number, title, date: .updated_at[0:10],
+			line: ( [ ( .body // "" ) | split("\n")[] | select( startswith($tm) ) ] | last // "" ) } ]' 2>/dev/null ) || merged='[]'
+	[ -n "$merged" ] || merged='[]'
+	cap=$( cfg .headlessCap 3 )
+	cores=$( sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo "?" )
+	load=$( { sysctl -n vm.loadavg 2>/dev/null || cat /proc/loadavg 2>/dev/null; } | tr -d '{}' | awk '{ print $1 }' )
+	now=$( date '+%Y-%m-%d %H:%M' )
+	printf '%s' "${all:-null}" | jq -r --argjson json "$json" --argjson merged "$merged" --arg agent "$C_AGENT" --arg review "$C_REVIEW" \
+		--arg ready "$C_READY" --arg backlog "$C_BACKLOG" --arg human "$C_HUMAN" --arg lm "$L_MERGED" --arg tm "$T_MERGED" \
+		--arg cap "$cap" --arg load "${load:-?}" --arg cores "$cores" --arg now "$now" '
+		( if type == "object" and has("items") then . else null end ) as $b
+		| def cards($c): if $b == null then null else [ $b.items[] | select( ( .status // "" ) == $c and .content.type == "Issue" ) | { number: .content.number, title: ( .title // .content.title ), labels: ( .labels // [] ) } ] end;
+		def row: "#\(.number) \(.title)";
+		( if $b == null then null else [ $b.items[] | select( .content.type == "Issue" and .status == $review and ( ( .labels // [] ) | index($lm) ) ) | .content.number ] end ) as $rev
+		| ( if $b == null then [] else [ $b.items[] | .content.number ] end ) as $onboard
+		| { at: $now, board: ( $b != null ),
+			running: cards($agent), human: cards($human),
+			ready: ( cards($ready) | if . then .[0:10] else . end ), backlog: ( cards($backlog) | if . then .[0:5] else . end ),
+			readyCount: ( cards($ready) | if . then length else null end ), backlogCount: ( cards($backlog) | if . then length else null end ),
+			handbacks: [ $merged[] | select( $rev == null or ( .number as $n | ( $rev | index($n) ) or ( $onboard | index($n) | not ) ) ) | . + { sha: ( .line | ( capture("\\*\\* *`?(?<s>[0-9a-f]{7,40})") | .s ) // "" ),
+				entry: ( .line | ( capture("(?<e>index[-.][A-Za-z0-9_-]+\\.js)") | .e ) // "?" ),
+				branch: ( .line | ( capture(" in (?<b>[^ ]+)") | .b ) // "" ) } ],
+			reviewMerged: ( if $rev then ( $rev | length ) else null end ),
+			noColumn: ( if $b == null then null else [ $b.items[] | select( ( .status // "" ) == "" and .content.type == "Issue" ) | { number: .content.number, title: ( .title // .content.title ) } ] end ),
+			limits: { headlessCap: ( $cap | tonumber? // $cap ), load1: $load, cores: $cores } }
+		| if $json == 1 then . else
+		[ "# STATE ( draft from the board, \(.at) )", "",
+		  ( if .board then empty else "> The board ( GraphQL ) could not be read, probably rate-limited: only the REST part below. Retry in a few minutes.\n" end ),
+		  "## Running", "", "Shift lead: <agent / none>", "",
+		  "| Ticket | Title | Agent / model | Worktree | Ports | Started | Phase |", "|---|---|---|---|---|---|---|",
+		  ( .running // [] | .[] | "| #\(.number) | \(.title) | ? | ? | ? | ? | build / finish / fix |" ), "",
+		  "## Waiting", "", "- <ticket> → <waits for what>", "",
+		  "## Queue", "",
+		  ( if .ready == null then "- ?" else ( ( .ready | to_entries[] | "\(.key + 1). \(.value | row) ( \($ready) )" ),
+		    ( if .readyCount > 10 then "   … \(.readyCount - 10) more in \($ready)" else empty end ),
+		    ( .backlog | to_entries[] | "- \(.value | row) ( \($backlog) )" ),
+		    ( if .backlogCount > 5 then "   … \(.backlogCount - 5) more in \($backlog)" else empty end ) ) end ), "",
+		  "## Owner decisions open", "",
+		  ( .human // [] | .[] | "- \(row) ( \($human) )" ), "- <decision> — recommendation: <…>", "",
+		  "## Limits", "",
+		  "- Builders: <cap> at once", "- Headless browsers: \(.limits.headlessCap) at once, machine-wide; load guard: 1-min load \(.limits.load1) / \(.limits.cores) cores",
+		  "- Ports: <ticket → port>", "- Locked files: <file → ticket>", "- Owner'"'"'s ports, never touched: <…>", "",
+		  "## Last hand-backs", "",
+		  "| Ticket | Title | Sha | Branch | Deployed entry | Date |", "|---|---|---|---|---|---|",
+		  ( .handbacks[0:10][] | "| #\(.number) | \(.title) | \(.sha) | \(.branch) | \(.entry) | \(.date) |" ),
+		  ( if ( .reviewMerged // 0 ) > 10 then "", "\(.reviewMerged) cards in \($review) carry `\($lm)`; the 10 updated last are shown ( sub-issues off the board included )." else empty end ), "",
+		  "## Notes", "",
+		  ( if ( .noColumn // [] | length ) > 0 then "- Cards without a column ( `board.sh tidy` takes sub-issues off ): \( [ .noColumn[] | row ] | join("; ") )" else empty end ),
+		  "- <date>: <self-set rule or incident>"
+		] | .[] end'
+}
+
 sub=${1:-help}; [ $# -gt 0 ] && shift
 case "$sub" in
 	tidy) cmd_tidy ;;
+	state) cmd_state "$@" ;;
 	ids) cmd_ids "$@" ;;
 	list) cmd_list "$@" ;;
 	next) cmd_next ;;
@@ -177,5 +241,5 @@ case "$sub" in
 	add) cmd_add "$@" ;;
 	move) cmd_move "$@" ;;
 	merged) cmd_merged "$@" ;;
-	*) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; [ "$sub" = help ] || exit 2 ;;
+	*) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; [ "$sub" = help ] || exit 2 ;;
 esac

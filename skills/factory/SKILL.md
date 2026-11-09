@@ -5,7 +5,7 @@ description: The orchestrator loop for a dark-factory Claude Code session - read
 
 # Factory: the orchestrator loop
 
-You are the orchestrating session. Builders are background subagents. The board ( see the `kanban` skill ) is the source of truth; the repository's AGENTS.md "Collaboration" section and `.factory.json` hold its rules and settings ( column names follow the `lang` preset; this document uses the `en` names ). Helpers: `${CLAUDE_PLUGIN_ROOT}/scripts/` ( `board.sh`, `watch.sh`, `run.sh`, `verify-report.sh`, `picdiff.mjs` ).
+You are the orchestrating session. Builders are background subagents. The board ( see the `kanban` skill ) is the source of truth; the repository's AGENTS.md "Collaboration" section and `.factory.json` hold its rules and settings ( column names follow the `lang` preset; this document uses the `en` names ). Helpers: `${CLAUDE_PLUGIN_ROOT}/scripts/` ( `board.sh`, `watch.sh`, `run.sh`, `verify-report.sh`, `picdiff.mjs`, `mergelock.sh` ).
 
 ## Upstream first
 
@@ -13,10 +13,19 @@ A change to a factory-level rule ( board workflow, ticket format, branch rules, 
 
 ## 0. Kickoff ( once )
 
-1. `git fetch`, read `AGENTS.md`, `CLAUDE.md`, `.factory.json`, and the plan or epic the owner named. Read the board: `board.sh list`. Check `ListAgents` and the transcripts of peer sessions ( `~/.claude/projects/<project>/<session>.jsonl`, read-only; read the end to tell finished from waiting for an answer ) so you never duplicate a session the owner already opened.
+1. **Read `STATE.md` first** ( repo root, if a previous session left one ), then `board.sh state` ( a draft of the sheet from the board ). `git fetch`, read `AGENTS.md`, `CLAUDE.md`, `.factory.json`, and the plan or epic the owner named. Read the board: `board.sh list`. Check `ListAgents` and the transcripts of peer sessions ( `~/.claude/projects/<project>/<session>.jsonl`, read-only; read the end to tell finished from waiting for an answer ) so you never duplicate a session the owner already opened.
 2. **Assumptions over questions.** Open points are answered from the repo first ( the plan, the tickets, rulings / canon, the owner's earlier decisions and art direction, the code ). What the repo does not answer, you assume, in line with that direction, and have it written under **Assumptions** in the ticket ( one line each: the assumption, why, what it touches ). Ask the owner only when an assumption would be irreversible or expensive to undo ( money, accounts, deleting their work, a canon-level fact many things build on ), and then **all questions at once, in one message, now**. A wrong assumption costs a change, a stalled ticket costs a night.
 3. **Ask for a hands-off list** in the same message: areas the owner wants to decide in person before any agent touches them. Record it and keep every builder out of them, drafts included.
-4. **Write the queue memo** and keep it current: running builders ( ticket, branch, worktree, ports, model ), queued tickets in dependency order with the reason for the order ( "A and B both edit file X: B after A" ), the owner's constraints, and the per-batch merge rule. Put it where it survives the conversation ( your memory directory or a scratch file ), never only in the chat: the conversation can be compacted at any time, and everything else lives in the tickets and on the branches.
+4. **Write `STATE.md`** at the repository root ( gitignored by init, local to the machine ) and **rewrite it, not append, at every hand-back, every spawn and every owner decision**. Long sessions lose what is not in a ticket: who runs now, on what, where, what waits for what, which limits you set yourself. Fixed sections, in this order:
+   - `## Running`: a line `Shift lead: <agent / none>`, then a table: ticket, title, agent kind / model, worktree, ports, started, phase ( build / finish / fix ).
+   - `## Waiting`: ticket → what it waits for.
+   - `## Queue`: the next tickets in the owner's order, with the reason if blocked ( "A and B both edit file X: B after A" ).
+   - `## Owner decisions open`: one line each, with your recommendation.
+   - `## Limits`: builder cap, headless-browser cap, port map, locked files, the owner's ports ( never touched ).
+   - `## Last hand-backs`: the last 10: ticket, sha, deployed entry file, date.
+   - `## Notes`: rules you set yourself and incidents, dated.
+
+   `board.sh state` prints the parts the board knows under the same headings; paste it and fill in agents, ports and worktrees. Never keep this only in the chat: the conversation can be compacted at any time, and everything else lives in the tickets and on the branches.
 5. Keep the machine awake while work runs: on macOS start `caffeinate -dimsu` in the background ( note its PID, stop it when the work is finished or the session ends ).
 6. Start the watcher ( below ).
 
@@ -24,9 +33,9 @@ A change to a factory-level rule ( board workflow, ticket format, branch rules, 
 
 Repeat until Ready and Backlog hold nothing you may take ( or the owner's scope is done ):
 
-1. **Pick:** the top of Ready, else the top of Backlog ( `board.sh next` ). Never reorder. Skip what needs the owner ( below ), blocked tickets stay in Backlog. If a ticket is vague, specify it ( short ticket, `kanban` template ) and move it to Ready first. Tickets that edit the same files run in sequence; the queue memo says which. **Before you create a ticket, search for overlap and extend an existing one** rather than opening a twin. **Cut work packages:** when several Ready tickets share files or an order ( the same subsystem, a chain of fixes on one file ), propose one package ticket per topic to the owner ( sub-issues, order, locked files ), and once approved run it as one builder on one branch with one verify, merge and deploy; each sub-issue still gets its own checks, assumptions, numbers and merged line ( `kanban` skill, "Work packages" ). The board then shows topics, which is what the owner sorts.
+1. **Pick:** the top of Ready, else the top of Backlog ( `board.sh next` ). Never reorder. Skip what needs the owner ( below ), blocked tickets stay in Backlog. If a ticket is vague, specify it ( short ticket, `kanban` template ) and move it to Ready first. Tickets that edit the same files run in sequence; `STATE.md` says which ( Limits: locked files ). **Before you create a ticket, search for overlap and extend an existing one** rather than opening a twin. **Cut work packages:** when several Ready tickets share files or an order ( the same subsystem, a chain of fixes on one file ), propose one package ticket per topic to the owner ( sub-issues, order, locked files ), and once approved run it as one builder on one branch with one verify, merge and deploy; each sub-issue still gets its own checks, assumptions, numbers and merged line ( `kanban` skill, "Work packages" ). The board then shows topics, which is what the owner sorts.
 2. **Prepare:** `board.sh move <n> "In Progress (Agent)"`. Branch `<type>/<id>-<slug>` from `main`, or from the umbrella branch the ticket or epic names. One worktree per ticket: `git worktree add ../<repo>-<id> -b <branch> <base>`, then the repo's install step in it. Pick a port block no other running agent uses ( the app's default or `--port <n>` ); never the owner's own dev server port.
-3. **Delegate:** start a **background subagent** ( Agent tool, `run_in_background` ) per ticket. Several tickets run in parallel when they do not touch the same files; stacked ones run in order. Give each agent the ticket text, the branch, the worktree path, its ports, the verify command, the list of peer ports and worktrees, and these rules: assume and record under **Assumptions** in the ticket instead of asking ( ask only for what is irreversible or expensive to undo, see kickoff ), commit early and often on the branch, push it, never touch other worktrees, stop only processes you started ( by PID ), headless browsers only under `run.sh`, merge-test-push in one `&&` chain, a clean tree after a build, no generated data in git, never move cards to Done, report with what was done, what was checked with numbers, what is open, and every assumption.
+3. **Delegate:** start a **background subagent** ( Agent tool, `run_in_background` ) per ticket. Several tickets run in parallel when they do not touch the same files; stacked ones run in order. Give each agent the ticket text, the branch, the worktree path, its ports, the verify command, the list of peer ports and worktrees, and these rules: assume and record under **Assumptions** in the ticket instead of asking ( ask only for what is irreversible or expensive to undo, see kickoff ), commit early and often on the branch, push it, never touch other worktrees, stop only processes you started ( by PID ), headless browsers only through the repo's launcher under `run.sh`, muted, windowless and without audio ( section 5b ), merge-test-push in one `&&` chain, a clean tree after a build, no generated data in git, never move cards to Done, report with what was done, what was checked with numbers, what is open, and every assumption.
    - **Model and reasoning effort per ticket ( set `effort` explicitly ):**
      - Opus, `high`: large tickets and milestones ( the default for builders ).
      - Opus, `xhigh`: foundations that later work builds on ( a new API, coordinate maths, a data model ).
@@ -35,7 +44,7 @@ Repeat until Ready and Backlog hold nothing you may take ( or the owner's scope 
 4. **Review** when the agent reports: read the diff against the ticket's checks ( footprint: files, sizes, nothing generated or binary that does not belong ), run the repo's verify command in the agent's worktree ( `verify-report.sh`, or the commands in `.factory.json` ), look at screenshots or output for visible changes ( `picdiff.mjs` before / after ). Read the builder's **Assumptions**: check each fits the plan and art direction ( send it back if not ), make sure they are in the ticket. Then post the review on the ticket as a comment ( "Review (Orchestrator)": what was checked with numbers, what the owner has to judge, side effects such as tools the builder installed on the machine ) and list the assumptions in your report to the owner so they can correct them. Flaws you find beyond the ticket's scope become new short tickets, not side fixes. Send fixes back to the same agent ( SendMessage ) or start a follow-up; do not merge on a FAIL.
 5. **Merge:** merge `main` ( or the umbrella branch ) into the ticket branch first, run the verify command on the merged tree ( smoke test ), then merge into `main` or the umbrella branch and push, in one `&&` chain. Merge when no other agent is in the middle of a step in the target's worktree; say in the ticket if you merged into a worktree someone works in. No force-push, no rebase of pushed branches. If the repository deploys per merged milestone ( `.factory.json` `deploy` or the plan says so ), deploy from the merged tree and read the served page back.
 6. **Hand back:** `board.sh merged <n> <sha> <branch>` ( line, label `merged`, assignee ), then `board.sh move <n> "In Review"`. Paste the verify report into the ticket ( `verify-report.sh | gh issue comment <n> --body-file -` ). Changes the owner asks for later go through the same branch and are merged again; move the card back to In Progress (Agent) first, with a "Changed after review" section.
-7. **Next:** start the next tickets yourself and update the queue memo. Do not wait for the owner between tickets of an approved plan.
+7. **Next:** start the next tickets yourself and rewrite `STATE.md`. Do not wait for the owner between tickets of an approved plan.
 
 Never run two performance measurements ( frame times, benchmarks, profilers ) at once: they distort each other. Queue them, or use a lock file. Functional checks may run in parallel on separate ports.
 
@@ -65,8 +74,16 @@ Monitor( command: "${CLAUDE_PLUGIN_ROOT}/scripts/watch.sh 31 32 33", description
 ## 4. Long sessions: limits, compaction, session end
 
 - **Usage limits.** When the account's usage window is exhausted ( HTTP 429 ), builders stop where they are; their state is committed on their branch. Do not restart them: once the window has reset, send each a message ( SendMessage ) to continue. Deploy and merge what is finished before the window runs out.
-- **Compaction.** The conversation may be summarised at any time. Keep nothing only in the chat: the queue memo, the tickets ( review comments, assumptions, merged lines ) and the branches hold the state. `ListAgents` returns the builders' handles afterwards. Compact between reviews, not in the middle of one.
+- **Compaction.** The conversation may be summarised at any time. Keep nothing only in the chat: `STATE.md`, the tickets ( review comments, assumptions, merged lines ) and the branches hold the state. `ListAgents` returns the builders' handles afterwards. Compact between reviews, not in the middle of one.
 - **Subagents end with the session.** Background subagents die when the session that started them ends. Work that must outlive it ( hours of builds, a night run ) goes into a **separate session** ( `claude -p "<prompt>"` in its worktree, under `caffeinate` ), with its transcript watched through `watch.sh`. Before ending, make sure nothing is left half-merged: every agent's work is committed and pushed, every card is in the right column, `caffeinate` is stopped, dev servers you started are stopped by PID.
+
+## 4a. Long sessions: renewal without the owner
+
+Never ask the owner to start a new session; the factory renews itself.
+
+- **Compaction is automatic.** `STATE.md` and the board make it lossless: after a summary, re-read `STATE.md`, run `board.sh state`, and simply continue.
+- **Shift leads.** Per batch of tickets, start one long-lived orchestrator subagent, the shift lead. It reads `STATE.md`, starts and reviews the builders, merges, and hands back only decisions and short summaries. When its context grows large it rewrites `STATE.md` and reports; you start the next shift lead. The root session stays thin and permanent, and `STATE.md` names the current shift lead under Running.
+- **A scheduled routine** that rehydrates a fresh run from `STATE.md` is optional, and only where the environment allows it.
 
 ## 5. Budget: the usage window
 
@@ -88,6 +105,14 @@ The account's usage limit is a token budget per 5-hour window, shared by the orc
 - **Trim tool output.** Tail and summarise logs; verify prints a one-screen summary; capture lists go to a file, not the transcript.
 - **Context packs, not plans.** The prompt names the exact plan sections and done lines a ticket needs; a builder does not read a whole plan.
 
+## 5b. Headless checks never touch the owner's machine
+
+- **Muted and windowless:** `headless: 'new'`, `--mute-audio`, no `bringToFront` or target activation, no window position or focus calls, no OS input tools. A builder that steals focus or the mouse interrupts the owner.
+- **One central launcher per repository** sets these flags, runs under `run.sh`, and opens the app with its no-audio flag ( the repository names it, e.g. `?noAudio` ): the app creates no audio context at all, because even a muted headless browser that opens one makes the operating system reconfigure the shared output device, and the owner hears pops.
+- **A machine-wide cap:** at most `headlessCap` ( `.factory.json`, default 3 ) headless browsers at once, across all builders; they share the GPU with the owner's browser. `STATE.md` shows it under Limits.
+- **Load guard:** no new headless run while the 1-minute load average is above the core count. `run.sh` waits for both ( up to `FACTORY_LOAD_WAIT` seconds, default 600, one line when it waits ), then runs.
+- The owner's own dev server and browser are never touched.
+
 ## 6. Checklist per ticket
 
-card in In Progress (Agent) -> branch + worktree + install + ports -> subagent with model and effort -> verify green -> assumptions read and surfaced -> merged tree verified -> merged and pushed in one chain -> deployed and read back ( if the repo deploys ) -> `merged` line + label -> review comment on the ticket -> In Review -> queue memo updated -> next ticket.
+card in In Progress (Agent) -> branch + worktree + install + ports -> subagent with model and effort -> verify green ( headless cap respected ) -> assumptions read and surfaced -> merged tree verified -> merged and pushed in one chain -> deployed and read back ( if the repo deploys ) -> `merged` line + label -> review comment on the ticket -> In Review -> `STATE.md` rewritten -> next ticket.

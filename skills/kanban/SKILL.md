@@ -21,7 +21,7 @@ Read from the repo root. `project` is required, the rest is optional. `factory-i
   "columns": { "epics": "Epics", "backlog": "Backlog", "ready": "Ready", "human": "In Progress (Human)",
                "agent": "In Progress (Agent)", "review": "In Review", "done": "Done" },
   "labels": { "merged": "merged" }, "terms": { "mergedLine": "Merged" },
-  "verify": [ { "name": "Build", "cmd": "npm run build" } ], "umbrella": [] }
+  "verify": [ { "name": "Build", "cmd": "npm run build" } ], "umbrella": [], "headlessCap": 3 }
 ```
 
 `lang` picks the preset ( `scripts/lang.sh` ). `en`, the default, is used in this document. `de` names the columns Epics, Backlog, Bereit, In Arbeit (Mensch), In Arbeit (Agent), Zur Review, Fertig, the labels `idee` and `gemergt`, the line `**Gemergt:**`, and the ticket headings **So prüfst du's**, **Annahmen**, **Nach Review geändert – bitte neu prüfen**, **Vorschau**. Read the repository's rendered AGENTS.md section for the names in force; `board.sh` reads them from `.factory.json`.
@@ -98,7 +98,7 @@ One ticket or one work package, one branch, one git worktree; never bundle unrel
 - **Cleanup only after the card is in Done** ( until then the owner can still ask for changes ): `git push origin --delete <branch>`, `git worktree remove <path>`.
 - Several agents run at once: each dev server gets its own port ( the app's fixed default or `--port <n>` ), and an agent stops only the processes it started, by PID. The owner's own dev server port is never touched.
 - Merging into a worktree another agent works in changes files under it: say so in the ticket, and prefer to merge when that agent is between steps.
-- Headless browser checks run under `scripts/run.sh <timeout s> <cmd>`.
+- Headless browser checks run muted, windowless and without an audio context, through the repository's one launcher, under `scripts/run.sh <timeout s> <cmd>`, which waits while `headlessCap` ( default 3 ) headless browsers run or the load is above the core count ( `factory` skill, 5b ).
 
 ## `board.sh` and the gh commands
 
@@ -113,6 +113,8 @@ board.sh add <issue-url> "<column>"   # put an issue on the board
 board.sh move <issue> "<column>"      # reads the status first; refuses Done (as target or source); In Review assigns the author, leaving it removes the assignee
 board.sh merged <issue> <sha> <branch>  # **Merged:** line + label merged + author as assignee
 board.sh tidy                         # cards without a column whose issue is a sub-issue: off the board
+board.sh state [--json]               # draft of STATE.md: In Progress (Agent), In Review + merged with the merged line, Ready top 10, Backlog top 5,
+                                      #   the owner's cards, cards without a column; 1 GraphQL + 1 REST call (read-only)
 ```
 
 The raw commands behind it ( use them when the script does not fit ):
