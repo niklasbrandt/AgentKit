@@ -48,6 +48,8 @@ Repeat until Ready and Backlog hold nothing you may take ( or the owner's scope 
 
 Never run two performance measurements ( frame times, benchmarks, profilers ) at once: they distort each other. Queue them, or use a lock file. Functional checks may run in parallel on separate ports.
 
+**Reports to the owner.** Whatever covers more than one ticket ( a hand-back round, a batch summary, the queue ) is a bullet list, one bullet per ticket: `**#31 ( Title )**`, one sentence on what the ticket does for the owner ( a title alone explains nothing to someone who did not read the ticket ), then its state and what is open. Never two tickets in one paragraph. Cross-ticket facts ( capacity, the deployed entry file ) are one closing paragraph. Every report ends with the next step as a question ( yes / no, or a / b / c, the recommendation first ) and, when nothing is left to do until an agent reports, with the line that you stand by until the agents report. The shift lead's summaries follow the same form.
+
 ## 2. What needs the owner
 
 Stop and ask only for these, and keep working on everything else:

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.0
+
+- Reports to the owner over several tickets are a bullet list, one bullet per ticket with its number, title and one sentence on what the ticket does for the owner, then state and open points; cross-ticket facts ( capacity, deployed entry file ) in one closing paragraph; never two tickets in one paragraph; every report ends with the next step as a yes / no or a / b / c question ( recommendation first ) and, when nothing is left until an agent reports, with "standing by until the agents report" ( reason: a report that put a decision, four running builders and a new ticket into one paragraph could not be read, and a title like "dusk continuous" explained nothing to the owner ) ( templates' Autonomy sections, delegation templates, factory skill before section 2, README rules ).
+
 ## 0.8.1
 
 - The board is found or created by the kit, not by the owner ( reason: init demanded a project number and told the owner to add seven columns by hand, although the API can do both ). New `scripts/project.sh`: `create` uses the project linked to the repository, else the owner's project titled like the repository ( and links it ), else creates one named after the repository and links it, listing the owner's other projects so an existing board is chosen over a second one; `columns` gives the Status field the preset's columns through `updateProjectV2Field` ( empty board: exactly the seven, defaults dropped; board with cards: append only with `--force` ). `init.sh` runs `create` when no `--project` is given and `columns` otherwise. Rule in the factory-init skill: look at the boards that exist before creating one; an existing board for the repository is used and its columns mapped under `columns` in `.factory.json`, extended only where the workflow's column is missing. Still manual, no API: the first view's Board layout and the "Auto-add" workflows ( `project.sh`, `init.sh`, factory-init skill, README ).

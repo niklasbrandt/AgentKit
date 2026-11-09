@@ -171,6 +171,7 @@ These are in the templates and skills; the short version, grouped.
 - **Numbers, not adjectives.** Performance, precision and look changes get the measured before and after in a comment; plan milestones get a dated done line with those numbers.
 - **Visible changes pass the neighbour test.** A reviewer accepted a change because the flagged flaw was gone, while the new element looked nothing like its neighbours; now the builder hands over context captures beside the nearest neighbours and the review comment names the comparison.
 - **Never two performance measurements at once.**
+- **Reports to the owner: one bullet per ticket, and say what the ticket is.** A round-up over several tickets is a bullet list, one bullet per ticket with number, title and one sentence on what it does for the owner, then state and open points; cross-ticket facts in one closing paragraph; the next step as a yes / no or a / b / c question at the end, then "standing by until the agents report" when that is the case. A paragraph that mashed a decision, four builders and a new ticket together could not be read.
 
 **Sessions and state**
 
@@ -213,6 +214,10 @@ These are in the templates and skills; the short version, grouped.
 MIT, see [LICENSE](LICENSE). The changelog below is the same as [CHANGELOG.md](CHANGELOG.md).
 
 ## Changelog
+
+### 0.9.0
+
+- Reports to the owner over several tickets are a bullet list, one bullet per ticket with its number, title and one sentence on what the ticket does for the owner, then state and open points; cross-ticket facts ( capacity, deployed entry file ) in one closing paragraph; never two tickets in one paragraph; every report ends with the next step as a yes / no or a / b / c question ( recommendation first ) and, when nothing is left until an agent reports, with "standing by until the agents report" ( reason: a report that put a decision, four running builders and a new ticket into one paragraph could not be read, and a title like "dusk continuous" explained nothing to the owner ) ( templates' Autonomy sections, delegation templates, factory skill before section 2, README rules ).
 
 ### 0.8.1
 
