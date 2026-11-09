@@ -5,8 +5,9 @@
 # The lock is $FACTORY_LOCK or /tmp/factory-<repo>.lock; MERGELOCK_WAIT ( seconds, default 3600 ) bounds the wait.
 set -uo pipefail
 [ $# -gt 0 ] || { echo "usage: mergelock.sh <command...>" >&2; exit 2; }
-ROOT=$( git rev-parse --show-toplevel 2>/dev/null || pwd )
-LOCK=${FACTORY_LOCK:-/tmp/factory-$( basename "$( git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null || echo "$ROOT" )" | sed 's/[^A-Za-z0-9_-]/-/g' ).lock}
+# one lock per repository, shared by all its worktrees: keyed on the common git dir, not the worktree's folder
+COMMON=$( git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || git rev-parse --git-common-dir 2>/dev/null || pwd )
+LOCK=${FACTORY_LOCK:-/tmp/factory-$( printf '%s' "$COMMON" | sed 's/[^A-Za-z0-9_-]/-/g' ).lock}
 WAIT=${MERGELOCK_WAIT:-3600}
 if command -v flock >/dev/null; then
 	exec flock -w "$WAIT" "$LOCK" "$@"
