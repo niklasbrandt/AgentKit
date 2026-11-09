@@ -5,11 +5,15 @@
 #     order: the project linked to the repository ( several: exit 3, pass --project ); else the owner's project titled like the repo
 #     ( linked then ); else a new one named after the repo. Other projects of the owner are listed so an existing board can be chosen.
 #   project.sh columns <project> <owner> [--force]                                 adds the preset's missing columns to the Status field
+#   project.sh view <project> <owner> [--name kanban]                              one Board view named like that: GitHub's default
+#                                                                                  "View 1" is renamed and switched, else one is created
+#   project.sh workflows <project> <owner>                                         lists the built-in workflows; warns about enabled
+#                                                                                  Auto-add and Item-closed ones ( no API to switch them )
 # Columns: an empty board ( no items ) gets exactly the preset's seven columns, in order; GitHub's defaults ( Todo, In Progress, Done )
 # are dropped and said so. A board with items keeps its options and only gets the missing ones appended, but only with --force, because
 # GitHub's updateProjectV2Field replaces the whole option set ( ids change; cards keep their column by name in our tests, but check ).
-# The view: the API has no mutation for views, so the project's first view stays a table named "View 1"; switch it to a Board layout
-# in the browser ( the only manual step ).
+# Still manual, no API: the project's "Default repository" setting ( only affects issues created from the project's UI ), and
+# switching the built-in workflows on or off ( deleteProjectV2Workflow exists, but deleting a built-in is not switching it off ).
 # Settings ( language preset, column overrides ) come from .factory.json like board.sh.
 set -euo pipefail
 HERE=$( cd "$( dirname "$0" )" && pwd )
@@ -65,6 +69,46 @@ cmd_columns() {
 		| gh api graphql --input - --jq '"columns set: " + ( .data.updateProjectV2Field.projectV2Field.options | map( .name ) | join( ", " ) )'
 }
 
+VIEW_NAME=$( cfg .view "kanban" )
+
+cmd_view() {
+	local p=${1:-} o=${2:-} name=$VIEW_NAME; shift 2 || true; [ "${1:-}" = "--name" ] && name=$2
+	[ -n "$p" ] && [ -n "$o" ] || { echo 'usage: project.sh view <project> <owner> [--name kanban]' >&2; exit 2; }
+	local pid vs q
+	pid=$( gh project view "$p" --owner "$o" --format json --jq .id ) || { echo "project.sh: cannot read project $p of $o" >&2; exit 1; }
+	q='query($id: ID!) { node(id: $id) { ... on ProjectV2 { views(first: 50) { nodes { id name layout } } } } }'
+	vs=$( gh api graphql -f query="$q" -f id="$pid" --jq '.data.node.views.nodes' ) || exit 1
+	local vid lay
+	vid=$( jq -r --arg n "$name" '[ .[] | select( .name == $n ) ] | .[0].id // empty' <<< "$vs" )
+	if [ -n "$vid" ]; then
+		lay=$( jq -r --arg n "$name" '[ .[] | select( .name == $n ) ] | .[0].layout' <<< "$vs" )
+		[ "$lay" = BOARD_LAYOUT ] && { echo "view ok: \"$name\" is a Board"; return 0; }
+		q='mutation($v: ID!) { updateProjectV2View(input: { viewId: $v, layout: BOARD_LAYOUT }) { projectV2View { name layout } } }'
+		gh api graphql -f query="$q" -f v="$vid" --jq '"view switched: \"" + .data.updateProjectV2View.projectV2View.name + "\" to Board"'; return
+	fi
+	# GitHub's default view of a new project: one table named "View 1" -> rename and switch it instead of leaving it beside the board
+	vid=$( jq -r '[ .[] | select( .name == "View 1" and .layout == "TABLE_LAYOUT" ) ] | .[0].id // empty' <<< "$vs" )
+	if [ -n "$vid" ]; then
+		q='mutation($v: ID!, $n: String!) { updateProjectV2View(input: { viewId: $v, name: $n, layout: BOARD_LAYOUT }) { projectV2View { name layout } } }'
+		gh api graphql -f query="$q" -f v="$vid" -f n="$name" --jq '"view renamed: \"View 1\" -> \"" + .data.updateProjectV2View.projectV2View.name + "\" as Board"'; return
+	fi
+	q='mutation($p: ID!, $n: String!) { createProjectV2View(input: { projectId: $p, name: $n, layout: BOARD_LAYOUT }) { projectV2View { name layout } } }'
+	gh api graphql -f query="$q" -f p="$pid" -f n="$name" --jq '"view created: \"" + .data.createProjectV2View.projectV2View.name + "\" as Board ( the other views stay: " + "'"$( jq -r 'map( .name ) | join( ", " )' <<< "$vs" )"'" + " )"'
+}
+
+cmd_workflows() {
+	local p=${1:-} o=${2:-}
+	[ -n "$p" ] && [ -n "$o" ] || { echo 'usage: project.sh workflows <project> <owner>' >&2; exit 2; }
+	local pid q ws
+	pid=$( gh project view "$p" --owner "$o" --format json --jq .id ) || exit 1
+	q='query($id: ID!) { node(id: $id) { ... on ProjectV2 { workflows(first: 20) { nodes { name enabled } } } } }'
+	ws=$( gh api graphql -f query="$q" -f id="$pid" --jq '.data.node.workflows.nodes' ) || exit 1
+	jq -r '.[] | "workflow  \( if .enabled then "on " else "off" end )  \( .name )"' <<< "$ws"
+	local bad; bad=$( jq -r '[ .[] | select( .enabled and ( .name | test( "Auto-add|Item closed|Auto-close" ) ) ) | .name ] | join( ", " )' <<< "$ws" )
+	[ -z "$bad" ] || { echo "project.sh: switch off in the browser ( project menu > Workflows; no API ): $bad" >&2; return 1; }
+	echo "workflows ok: none of Auto-add / Item closed / Auto-close is on"
+}
+
 cmd_create() {
 	local owner="" repo="" title=""
 	while [ $# -gt 0 ]; do case "$1" in
@@ -95,12 +139,16 @@ cmd_create() {
 	fi
 	gh project link "$n" --owner "$owner" --repo "$repo" >/dev/null 2>&1 && echo "linked project $n to $repo" >&2 || echo "project.sh: could not link project $n to $repo ( already linked, or gh project link failed )" >&2
 	cmd_columns "$n" "$owner" >&2 || echo "project.sh: the board keeps its columns; map them in .factory.json under \"columns\" or extend with --force" >&2
-	echo "the first view is a table named \"View 1\": switch it to the Board layout in the browser ( no API for views )" >&2
+	cmd_view "$n" "$owner" >&2 || true
+	cmd_workflows "$n" "$owner" >&2 || true
+	echo "still manual: Project settings > \"Default repository\" = $repo ( no API; it only affects issues created from the project's UI )" >&2
 	echo "$n"
 }
 
 case "${1:-}" in
 	create) shift; cmd_create "$@" ;;
 	columns) shift; cmd_columns "$@" ;;
-	*) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+	view) shift; cmd_view "$@" ;;
+	workflows) shift; cmd_workflows "$@" ;;
+	*) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
 esac

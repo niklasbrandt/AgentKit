@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.1
+
+- The board's view and workflows join the automatic setup ( reason: after the columns, the owner still had to rename the view, switch it to Board and check the workflows by hand ). `project.sh view` makes one Board view named `kanban` ( `.factory.json` key `view` ): GitHub's default table "View 1" is renamed and switched through `updateProjectV2View`, a same-named view is switched, otherwise one is created and the owner's views stay. `project.sh workflows` lists the built-in workflows and warns when Auto-add, Item closed or Auto-close is on. `create` and `init.sh` run both. Found to have no API, so still manual: the project's "Default repository" setting and switching a workflow on or off ( `project.sh`, `init.sh`, factory-init skill, README ).
+
 ## 0.9.0
 
 - Reports to the owner over several tickets are a bullet list, one bullet per ticket with its number, title and one sentence on what the ticket does for the owner, then state and open points; cross-ticket facts ( capacity, deployed entry file ) in one closing paragraph; never two tickets in one paragraph; every report ends with the next step as a yes / no or a / b / c question ( recommendation first ) and, when nothing is left until an agent reports, with "standing by until the agents report" ( reason: a report that put a decision, four running builders and a new ticket into one paragraph could not be read, and a title like "dusk continuous" explained nothing to the owner ) ( templates' Autonomy sections, delegation templates, factory skill before section 2, README rules ).

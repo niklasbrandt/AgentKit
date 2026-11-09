@@ -156,6 +156,6 @@ declare -a L=( "$D_L_IDEA:FBCA04:Idea, not yet specified" "feature:1D76DB:New ca
 for l in "${L[@]}"; do IFS=: read -r n c d <<< "$l"; gh label create "$n" --repo "$REPO" --color "$c" --description "$d" >/dev/null 2>&1 && echo "label $n created" || echo "label $n exists"; done
 
 # the board's columns: added by the API while the board is empty ( project.sh ), otherwise reported
-[ $NEWBOARD = 1 ] || "$HERE/project.sh" columns "$PROJECT" "$OWNER" || true
+[ $NEWBOARD = 1 ] || { "$HERE/project.sh" columns "$PROJECT" "$OWNER" || true; "$HERE/project.sh" view "$PROJECT" "$OWNER" || true; "$HERE/project.sh" workflows "$PROJECT" "$OWNER" || true; }
 "$HERE/board.sh" ids "$PROJECT" "$OWNER" || { echo "init.sh: add the missing columns in the project's Status field ( Project settings > Status, or project.sh columns $PROJECT $OWNER --force )" >&2; rc=1; }
 exit $rc
