@@ -19,7 +19,10 @@ while [ $# -gt 0 ]; do case "$1" in
 	--owner) OWNER=$2; shift ;; --name) NAME=$2; shift ;; --project) PROJECT=$2; shift ;; --lang) LANG_OPT=$2; shift ;; --verify) VERIFY=$2; shift ;;
 	--run) RUN=$2; shift ;; --umbrella) UMB=$2; shift ;; --replace-existing) REPLACE=1 ;; --dry-run) DRY=1 ;;
 	*) echo "unknown option $1" >&2; exit 2 ;; esac; shift; done
-REPO=$( gh repo view --json nameWithOwner --jq .nameWithOwner )
+REPO=$( gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null ) || REPO=""
+# GraphQL unavailable ( rate limit ): owner/name from the origin remote
+[ -n "$REPO" ] || REPO=$( git remote get-url origin 2>/dev/null | sed -E 's#^.*github\.com[:/]##; s#\.git$##' )
+[ -n "$REPO" ] || { echo "init.sh: cannot tell the repository ( gh repo view failed, no GitHub origin remote )" >&2; exit 1; }
 [ -n "$OWNER" ] || OWNER=${REPO%%/*}
 [ -n "$NAME" ] || NAME=$( gh api "users/$OWNER" --jq '.name // .login' 2>/dev/null || echo "$OWNER" )
 [ -n "$PROJECT" ] || { echo "init.sh: --project <number> is required ( gh project list --owner $OWNER )" >&2; exit 2; }
@@ -27,8 +30,14 @@ LANG_OPT=${LANG_OPT:-en}
 [ -d "$PLUGIN/templates/$LANG_OPT" ] || { echo "init.sh: no templates for --lang $LANG_OPT ( available: $( cd "$PLUGIN/templates" && ls -d */ | tr -d / | tr '\n' ' ' ))" >&2; exit 2; }
 [ -n "$VERIFY" ] || VERIFY="npm run build"
 [ -n "$RUN" ] || RUN="npm install && npm run dev"
-PNAME=$( gh project view "$PROJECT" --owner "$OWNER" --format json --jq .title )
-PURL=$( gh project view "$PROJECT" --owner "$OWNER" --format json --jq .url )
+PJ=$( gh project view "$PROJECT" --owner "$OWNER" --format json 2>/dev/null ) || PJ=""
+PNAME=$( printf '%s' "$PJ" | jq -r '.title // empty' 2>/dev/null ); PURL=$( printf '%s' "$PJ" | jq -r '.url // empty' 2>/dev/null )
+if [ -z "$PNAME" ] || [ -z "$PURL" ]; then
+	# GraphQL unavailable ( rate limit ): take name and link from the section init rendered before, if there is one
+	read -r PNAME PURL < <( sed -n "s/.*( \[\(.*\) project $PROJECT\](\([^)]*\)) ).*/\1 \2/p" "$ROOT/AGENTS.md" 2>/dev/null | head -1 )
+	[ -n "$PURL" ] || { echo "init.sh: cannot read project $PROJECT of $OWNER ( gh project view; GraphQL rate limit? ) and no earlier rendered section to take its name from" >&2; exit 1; }
+	echo "init.sh: project read failed ( GraphQL ), name and link taken from AGENTS.md: $PNAME, $PURL" >&2
+fi
 PLUGIN_URL=$( jq -r '.repository // "AgentKit"' "$PLUGIN/.claude-plugin/plugin.json" 2>/dev/null || echo AgentKit )
 UNOTE=""; [ -z "$UMB" ] || UNOTE=", e.g. $( printf '%s' "$UMB" | sed 's/[^, ][^,]*/`&`/g' )"
 MAIN=$( git worktree list --porcelain | awk 'NR == 1 { print $2 }' )   # sessions run in the main checkout, not in a ticket worktree
@@ -125,11 +134,13 @@ if ! grep -qx 'STATE.md' "$ROOT/.gitignore" 2>/dev/null; then
 fi
 [ -f "$ROOT/STATE.md" ] || { cp "$PLUGIN/templates/STATE.md" "$ROOT/STATE.md" && echo "created STATE.md"; }
 
-# .factory.json: keep what is there, set what is known
+# .factory.json: keep what is there, set what is known; capacity keys ( capacity.sh ) only when missing, headlessCap kept as written
 BASE='{}'; [ -f "$CFG" ] && BASE=$( cat "$CFG" )
 echo "$BASE" | jq --argjson p "$PROJECT" --arg o "$OWNER" --arg n "$NAME" --arg l "$LANG_OPT" --arg run "$RUN" --arg v "$VERIFY" --arg u "$UMB" '
 	.project = $p | .owner = $o | .ownerName = $n | .lang = $l | .reviewer = (.reviewer // $o) | .localRun = $run
-	| .verify = (.verify // [ { name: "Build", cmd: $v } ]) | .headlessCap = (.headlessCap // 3)
+	| .verify = (.verify // [ { name: "Build", cmd: $v } ])
+	| .agentsMax = (.agentsMax // 6) | .headlessMax = (.headlessMax // .headlessCap // 4) | .diskMBs = (.diskMBs // 1500)
+	| .ownerPorts = (.ownerPorts // []) | .idleMinutes = (.idleMinutes // 10) | .afkMinutes = (.afkMinutes // 30)
 	| .umbrella = (.umbrella // ( if $u == "" then [] else ( $u | split(", ") ) end ) )' > "$CFG.tmp" && mv "$CFG.tmp" "$CFG"
 echo "wrote $CFG"
 

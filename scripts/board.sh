@@ -8,7 +8,8 @@
 #   board.sh move <issue> "<column>"      move a card; to In Review it also assigns the ticket's author, out of it removes that assignee
 #   board.sh merged <issue> <sha> <branch>   add the line "**Merged:** <sha> in <branch>", the label and the author as assignee
 #   board.sh tidy                         take cards without a column off the board when their issue is a sub-issue of a package ( GitHub's auto-add puts them back )
-#   board.sh state [--json]               a draft of STATE.md from the board: running, queue, owner's cards, last hand-backs, cards without a column ( read-only )
+#   board.sh state [--json]               a draft of STATE.md from the board: running, queue, owner's cards, last hand-backs, cards without a column,
+#                                         under Limits the measured capacity ( capacity.sh ) ( read-only )
 #   board.sh stale [--minutes N] [--json]   per git worktree: minutes since the last commit and the last file change, running processes, verdict STALE ( default N = 45 ); the merge lock and its age ( read-only )
 # Settings come from .factory.json at the repo root ( or $FACTORY_JSON ). "project" is required, the rest optional:
 #   { "project": 1, "owner": "<GitHub handle; default: the repo's owner>", "reviewer": "<default: owner>", "repo": "owner/name",
@@ -16,7 +17,8 @@
 #     "columns": { "epics": "Epics", "backlog": "Backlog", "ready": "Ready", "human": "In Progress (Human)",
 #                  "agent": "In Progress (Agent)", "review": "In Review", "done": "Done" },
 #     "labels": { "merged": "merged" }, "terms": { "mergedLine": "Merged" },
-#     "headlessCap": 3       ( concurrent headless browsers on this machine; shown under Limits by state, enforced by run.sh ) }
+#     "agentsMax": 6, "headlessMax": 4   ( upper bounds for capacity.sh's recommendation; "headlessCap" is read as an alias of headlessMax ),
+#     "diskMBs": 1500, "ownerPorts": [ ]  ( capacity.sh: disk saturation threshold; the owner's own dev-server ports ) }
 # Guards: agents never move a card to Done and never touch a card that already is in Done ( set FACTORY_OWNER=1 to lift this, for the owner ).
 set -euo pipefail
 
@@ -182,13 +184,15 @@ cmd_state() {
 		| jq --arg tm "**$T_MERGED:**" '[ .[] | { number, title, date: .updated_at[0:10],
 			line: ( [ ( .body // "" ) | split("\n")[] | select( startswith($tm) ) ] | last // "" ) } ]' 2>/dev/null ) || merged='[]'
 	[ -n "$merged" ] || merged='[]'
-	cap=$( cfg .headlessCap 3 )
+	cap=$( cfg '.headlessMax // .headlessCap' 4 )
+	capj=$( FACTORY_JSON=$CFG "$( cd "$( dirname "$0" )" && pwd )/capacity.sh" --json 2>/dev/null | jq -c . 2>/dev/null ) || capj=""
+	[ -n "$capj" ] || capj=null
 	cores=$( sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo "?" )
 	load=$( { sysctl -n vm.loadavg 2>/dev/null || cat /proc/loadavg 2>/dev/null; } | tr -d '{}' | awk '{ print $1 }' )
 	now=$( date '+%Y-%m-%d %H:%M' )
 	printf '%s' "${all:-null}" | jq -r --argjson json "$json" --argjson merged "$merged" --arg agent "$C_AGENT" --arg review "$C_REVIEW" \
 		--arg ready "$C_READY" --arg backlog "$C_BACKLOG" --arg human "$C_HUMAN" --arg lm "$L_MERGED" --arg tm "$T_MERGED" \
-		--arg cap "$cap" --arg load "${load:-?}" --arg cores "$cores" --arg now "$now" '
+		--arg cap "$cap" --argjson capj "$capj" --arg load "${load:-?}" --arg cores "$cores" --arg now "$now" '
 		( if type == "object" and has("items") then . else null end ) as $b
 		| def cards($c): if $b == null then null else [ $b.items[] | select( ( .status // "" ) == $c and .content.type == "Issue" ) | { number: .content.number, title: ( .title // .content.title ), labels: ( .labels // [] ) } ] end;
 		def row: "#\(.number) \(.title)";
@@ -203,7 +207,7 @@ cmd_state() {
 				branch: ( .line | ( capture(" in (?<b>[^ ]+)") | .b ) // "" ) } ],
 			reviewMerged: ( if $rev then ( $rev | length ) else null end ),
 			noColumn: ( if $b == null then null else [ $b.items[] | select( ( .status // "" ) == "" and .content.type == "Issue" ) | { number: .content.number, title: ( .title // .content.title ) } ] end ),
-			limits: { headlessCap: ( $cap | tonumber? // $cap ), load1: $load, cores: $cores } }
+			limits: { headlessMax: ( $cap | tonumber? // $cap ), load1: $load, cores: $cores }, capacity: $capj }
 		| if $json == 1 then . else
 		[ "# STATE ( draft from the board, \(.at) )", "",
 		  ( if .board then empty else "> The board ( GraphQL ) could not be read, probably rate-limited: only the REST part below. Retry in a few minutes.\n" end ),
@@ -219,7 +223,12 @@ cmd_state() {
 		  "## Owner decisions open", "",
 		  ( .human // [] | .[] | "- \(row) ( \($human) )" ), "- <decision> — recommendation: <…>", "",
 		  "## Limits", "",
-		  "- Builders: <cap> at once", "- Headless browsers: \(.limits.headlessCap) at once, machine-wide; load guard: 1-min load \(.limits.load1) / \(.limits.cores) cores",
+		  ( if .capacity then .capacity as $c
+		    | "- Capacity ( last measured \($c.at) ): agents \($c.agents), headless \($c.headless) ( free \($c.free_headless) ); owner \($c.owner); load \($c.measures.load1) / \($c.measures.cores) cores, memory \($c.measures.memory // "?"), GPU \($c.measures.gpu_device_pct // "?") %, disk \($c.measures.disk_mbs // "?") MB/s, \($c.measures.headless_running) headless running",
+		      ( $c.reasons[] | "  - \(.)" )
+		    else "- Capacity ( last measured ): capacity.sh not readable" end ),
+		  "- Builders: at most the measured `agents`, recomputed before every spawn ( max \(.capacity.caps.agentsMax // "agentsMax") )",
+		  "- Headless browsers: at most the measured `headless` ( max \(.limits.headlessMax) ), machine-wide; load guard: 1-min load \(.limits.load1) / \(.limits.cores) cores",
 		  "- Ports: <ticket → port>", "- Locked files: <file → ticket>", "- Owner'"'"'s ports, never touched: <…>", "",
 		  "## Last hand-backs", "",
 		  "| Ticket | Title | Sha | Branch | Deployed entry | Date |", "|---|---|---|---|---|---|",

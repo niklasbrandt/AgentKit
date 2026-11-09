@@ -2,14 +2,14 @@
 
 A Claude Code plugin that runs a repository as a **dark factory**: agents take tickets from a GitHub Projects kanban board, build on their own branch and worktree, verify, merge, and hand the card back for review. An orchestrating session starts the next tickets itself, reviews and deploys, and stops only for what truly needs the owner: approving a card as done, money, accounts, hardware, facts of the product's world, and removing something the owner specified.
 
-It is three skills, eight scripts, the rule templates in two languages and a state-sheet skeleton. Nothing in it is specific to a framework or a language; the repository supplies its own verify command and, if it deploys, its own single deploy script.
+It is three skills, nine scripts, the rule templates in two languages and a state-sheet skeleton. Nothing in it is specific to a framework or a language; the repository supplies its own verify command and, if it deploys, its own single deploy script.
 
 ## How it works
 
 1. **The board is the source of truth.** Seven columns: Epics, Backlog, Ready, In Progress (Human), In Progress (Agent), In Review, Done. The owner sorts the Backlog; agents take from the top of Ready, else Backlog, and never reorder. Tickets that share files become one **work package**: one topic card on the board, the detail tickets as its sub-issues off it.
 2. **One ticket or package, one branch, one worktree, one port block.** Branches are `<type>/<id>-<slug>`, from `main` or from the umbrella branch the ticket's epic names.
 3. **Two phases per ticket.** An Opus builder designs, implements and stops at a short handover; a Sonnet finisher runs the full verify, takes the captures, writes the ticket and merges under the repository's merge lock. Merge, verify and push run in one `&&` chain.
-4. **The orchestrator reviews and deploys.** It checks the diff against the ticket, runs the verify command, reads the builder's assumptions, judges visible changes against their neighbours, posts a review comment, and hands the card to In Review with the label `merged` and a `**Merged:** <sha> in <branch>` line. After a batch of merges it verifies the tip once and deploys it once. Only the owner moves a card to Done.
+4. **The orchestrator reviews and deploys.** It checks the diff against the ticket, runs the verify command, reads the builder's assumptions, judges visible changes against their neighbours, posts a review comment, and hands the card to In Review with the label `merged` and a `**Merged:** <sha> in <branch>` line. After a batch of merges it triggers one deployer agent that verifies the tip once and deploys it once. Only the owner moves a card to Done.
 5. **Assumptions over questions.** What the repository does not answer, the agent decides, records under **Assumptions** in the ticket, and keeps going. Questions that must be asked are asked all at once, at kickoff, together with a hands-off list.
 6. **The state lives outside the chat.** `STATE.md` at the repo root ( gitignored ) holds who runs what, the queue, open owner decisions and limits. A fresh or compacted session reads it, runs `board.sh state`, and continues; shift-lead subagents keep the root session thin, and nobody asks the owner for a new session.
 
@@ -18,9 +18,10 @@ It is three skills, eight scripts, the rule templates in two languages and a sta
 | Role | Is | Does |
 |---|---|---|
 | **Owner** | The human | Sorts the Backlog, answers the kickoff questions, names the hands-off list, judges cards in In Review, moves cards to Done, decides money, accounts, hosting, canon and taste. |
-| **Orchestrator** | The Claude Code session the owner opens | Kickoff, picks tickets, prepares branch / worktree / ports, starts builders, reviews, merges stragglers, deploys once per batch, keeps `STATE.md`, waits with Monitor on `watch.sh`. |
+| **Orchestrator** | The Claude Code session the owner opens | Kickoff, picks tickets, prepares branch / worktree / ports, starts builders, reviews, merges stragglers, decides the deploy once per batch, keeps `STATE.md`, waits with Monitor on `watch.sh`. |
 | **Shift lead** | A long-lived orchestrator subagent, one per batch | Runs the loop for its batch, hands back decisions and short summaries, rewrites `STATE.md` when its context grows and makes way for the next. |
 | **Builder** | A background subagent, Opus by default, Sonnet for mechanical tickets | Builds the ticket on its branch, commits early, records assumptions, hands over with context captures. Never deploys, never moves a card to Done. |
+| **Deployer** | A subagent on the cheapest model, one per batch, never two at once | Under the merge lock: verify on the integration tip, build, the repo's gated deploy script, read-back; returns one line ( sha, entry file, read-back ). Fixes nothing. |
 | **Finisher** | A Sonnet subagent | Full verify, captures, the ticket's checks and numbers, merge under the lock, `board.sh merged`. |
 
 ### The batch cycle
@@ -30,7 +31,8 @@ pick ( board.sh next ) -> In Progress (Agent) -> branch + worktree + install + p
   -> handover -> finisher: verify, captures, ticket, merge under mergelock.sh, push in one && chain
   -> orchestrator review: diff vs ticket, verify-report.sh, picdiff.mjs, neighbour comparison, assumptions
   -> board.sh merged + review comment -> In Review -> STATE.md rewritten -> next ticket
-per batch: verify on the tip of main / umbrella -> one deploy through the repo's deploy script -> served page read back -> sha + entry file in STATE.md
+per batch: orchestrator triggers the deployer agent ( cheapest model, under mergelock.sh ) -> verify on the tip of main / umbrella
+  -> build -> one deploy through the repo's deploy script -> served page read back -> its one line ( sha, entry file ) in STATE.md
 ```
 
 ## Install
@@ -75,10 +77,11 @@ All in `scripts/`, called by path ( `${CLAUDE_PLUGIN_ROOT}/scripts/...` inside C
 
 | Script | Does |
 |---|---|
-| `board.sh ids <project> <owner> \| list [column] \| next \| status <n> \| add <url> "<col>" \| move <n> "<col>" \| merged <n> <sha> <branch> \| tidy \| stale [--minutes N] [--json] \| state [--json]` | Board operations with the guards built in: never sets Done, never touches a card in Done, assigns the author on In Review and removes the assignee on leaving it. `tidy` takes stray sub-issue cards off the board. `stale` ( no GitHub call ) lists every git worktree with minutes since its last commit and last file change, whether a process runs inside it, and the verdict `STALE` ( both ages over N, default 45, no process ), plus the merge lock and its age ( a lock over 30 minutes with no `mergelock.sh` process is stale ); the watchdog's eyes. `state` prints a draft of `STATE.md` from the board in one GraphQL and one REST call. |
+| `board.sh ids <project> <owner> \| list [column] \| next \| status <n> \| add <url> "<col>" \| move <n> "<col>" \| merged <n> <sha> <branch> \| tidy \| stale [--minutes N] [--json] \| state [--json]` | Board operations with the guards built in: never sets Done, never touches a card in Done, assigns the author on In Review and removes the assignee on leaving it. `tidy` takes stray sub-issue cards off the board. `stale` ( no GitHub call ) lists every git worktree with minutes since its last commit and last file change, whether a process runs inside it, and the verdict `STALE` ( both ages over N, default 45, no process ), plus the merge lock and its age ( a lock over 30 minutes with no `mergelock.sh` process is stale ); the watchdog's eyes. `state` prints a draft of `STATE.md` from the board in one GraphQL and one REST call, with the measured capacity under Limits. |
+| `capacity.sh [--json] [--no-disk]` | Measures the machine's bottlenecks ( load against cores, thermal limit, memory pressure and swap, GPU utilisation, headless browsers running, disk MB/s ) and the owner's activity ( idle time, `ownerPorts` in use ), and recommends `agents` and `headless` for right now, between 1 and `agentsMax` / `headlessMax` ( AFK: up to `agentsMax` + 2 ). Prints a table with the reasons; `--json` gives `{ agents, headless, free_headless, owner, reasons, measures, caps }`. Read-only, no sudo, always exit 0. The orchestrator runs it before every spawn and every 30 minutes. |
 | `init.sh --project <n> [--lang en\|de] [--owner <handle>] [--name "<Full Name>"] [--verify "<cmd>"] [--run "<cmd>"] [--umbrella "a, b"] [--replace-existing] [--dry-run]` | What `factory-init` runs. Idempotent: sections are replaced between `<!-- factory:collaboration:start/end -->` and `<!-- factory:delegation:start/end -->` markers. Writes `.factory.json`, the labels, the `STATE.md` skeleton and its `.gitignore` line, then runs `board.sh ids`. Existing `.factory.json` values are the defaults for omitted flags. |
 | `lang.sh` | The `en` and `de` presets for column names, labels and ticket wording. Sourced by the other scripts, never run. |
-| `run.sh <timeout s> <cmd...>` | Watchdog for headless work: TERM after the timeout, then kills orphaned headless Chromes. Waits first while `headlessCap` headless browsers run or the 1-minute load is above the core count. Also for a dev server in the background ( `FACTORY_LOAD_WAIT=0` ). |
+| `run.sh <timeout s> <cmd...>` | Watchdog for headless work: TERM after the timeout, then kills orphaned headless Chromes. Waits first while the headless cap is reached ( `capacity.sh`'s `headless`, re-measured while it waits; without it `headlessMax` ) or the 1-minute load is above the core count. Also for a dev server in the background ( `FACTORY_LOAD_WAIT=0` ). |
 | `verify-report.sh [--quick] [--timeout 900]` | Runs the `verify` list of `.factory.json`, each under `run.sh`, and prints a ticket section with PASS / FAIL per check in the preset's wording. `--quick` skips `"slow": true` entries. Exit 1 on any FAIL. |
 | `picdiff.mjs <A> <B> [--out dir] [--threshold 24] [--fail pct]` | Share of differing pixels between two captures or two folders of PNGs, decoded in headless Chrome, no image library. `--out` writes a sheet per pair, `--fail` makes it exit 1 above the share. |
 | `mergelock.sh <cmd...>` | One lock per repository ( keyed on the common git dir, so every worktree shares it ) around merge, verify and push: a second builder waits instead of verifying twice. |
@@ -91,6 +94,7 @@ All in `scripts/`, called by path ( `${CLAUDE_PLUGIN_ROOT}/scripts/...` inside C
 | `FACTORY_JSON` | all | Path of the settings file ( default `<repo>/.factory.json` ). |
 | `FACTORY_OWNER=1` | `board.sh` | Lifts the Done guards; for the owner's own shell only. |
 | `FACTORY_LOAD_WAIT` | `run.sh` | Seconds to wait for the cap and load guard ( default 600, `0` = no guard ). |
+| `HEADLESS_CAP` | `run.sh` | Fixed headless cap; overrides `capacity.sh` and `.factory.json`. |
 | `FACTORY_CHROME_PATTERN` | `run.sh` | Pattern that identifies headless Chromes ( default `puppeteer_dev_chrome_profile` ). |
 | `FACTORY_LOCK`, `MERGELOCK_WAIT` | `mergelock.sh` | Lock path ( default `/tmp/factory-<repo>.lock` ) and the longest wait in seconds ( default 3600 ). |
 | `CHROME` | `picdiff.mjs` | Path of the Chrome to decode with ( default: the installed one; headless checks of a repo should point it at a Chrome for Testing build ). |
@@ -104,7 +108,7 @@ All in `scripts/`, called by path ( `${CLAUDE_PLUGIN_ROOT}/scripts/...` inside C
 
 ## `.factory.json`
 
-Lives at the repo root. `project` is required; everything else has a default. `init.sh` writes it, `board.sh`, `run.sh`, `verify-report.sh` and `watch.sh` read it.
+Lives at the repo root. `project` is required; everything else has a default. `init.sh` writes it, `board.sh`, `capacity.sh`, `run.sh`, `verify-report.sh` and `watch.sh` read it.
 
 ```json
 {
@@ -119,7 +123,12 @@ Lives at the repo root. `project` is required; everything else has a default. `i
               { "name": "Pictures", "cmd": "node picdiff.mjs before after --fail 6", "slow": true } ],
   "deploy": "<the repository's single deploy script, if it deploys>",
   "umbrella": [],
-  "headlessCap": 3,
+  "agentsMax": 6,
+  "headlessMax": 4,
+  "diskMBs": 1500,
+  "ownerPorts": [ 5173 ],
+  "idleMinutes": 10,
+  "afkMinutes": 30,
   "columns": { "ready": "Ready" },
   "labels": { "merged": "merged" },
   "terms": { "mergedLine": "Merged" }
@@ -129,7 +138,9 @@ Lives at the repo root. `project` is required; everything else has a default. `i
 - `lang` selects the preset for columns, labels and the wording of the ticket template and the verify report. `en`: Epics, Backlog, Ready, In Progress (Human), In Progress (Agent), In Review, Done; labels `idea`, `merged`; line `**Merged:**`. `de`: Epics, Backlog, Bereit, In Arbeit (Mensch), In Arbeit (Agent), Zur Review, Fertig; labels `idee`, `gemergt`; line `**Gemergt:**`. Any single name can be overridden in `columns`, `labels` or `terms`.
 - `verify` entries are `{ name, cmd, slow }` or a plain command string; `slow` entries are skipped by `verify-report.sh --quick`.
 - `deploy` is read by the orchestrator ( the `factory` skill ), not by a script: it names the one script that deploys a verified tip and carries the repository's own gates.
-- `headlessCap` is the machine-wide number of headless browsers `run.sh` allows at once ( default 3 ).
+- `agentsMax` ( default 6 ) and `headlessMax` ( default 4 ) are the upper bounds of `capacity.sh`'s recommendation; how many run is measured ( factory skill 5c ). `headlessCap`, the fixed cap before 0.8.0, is read as an alias of `headlessMax`.
+- `diskMBs` is the disk throughput `capacity.sh` treats as saturated ( default 1500, an NVMe drive under heavy use ).
+- `ownerPorts` lists the owner's own dev-server ports: an established connection on one counts as the owner testing. `idleMinutes` ( 10 ) and `afkMinutes` ( 30 ) are the owner-activity thresholds: below `idleMinutes` since the last input the owner is active and headroom is reserved, from `afkMinutes` on up to `agentsMax` + 2 agents run.
 
 ## Rules learned in production
 
@@ -145,7 +156,7 @@ These are in the templates and skills; the short version, grouped.
 
 **Deploy**
 
-- **The orchestrator deploys, once per batch, never a builder.** Builders that each deployed after their own merge shipped a build missing another merge's generated files and broke the live page; the deploy is one step from the verified tip through one gated script.
+- **The orchestrator decides the deploy, once per batch, never a builder; a deployer agent does it.** Builders that each deployed after their own merge shipped a build missing another merge's generated files and broke the live page; the deploy is one step from the verified tip through one gated script. The work ( verify, build, deploy, read-back ) goes to a deployer agent on the cheapest model under the merge lock, which returns one line, so the deploy's logs never fill the orchestrator's context.
 - **A deploy is done when the served page is checked**, not when the upload returns. A deploy that skipped unchanged-size files served a stale entry page for two days while every new bundle was uploaded.
 - **Nothing executable on a server, ever.** A deploy ships the built site and static assets; free space comes from FTP commands, the owner's panel, or is reported as unknown.
 
@@ -176,7 +187,8 @@ These are in the templates and skills; the short version, grouped.
 
 **Headless checks**
 
-- **Headless checks never touch the owner's machine**: muted, windowless, no audio context, one launcher, at most `headlessCap` at once and none above the core count in load. A muted headless browser that opened an audio context still made the owner's speakers pop.
+- **The machine is measured, not guessed.** Fixed caps ( six builders, three browsers ) stalled the owner's machine under load and left it idle at night. `capacity.sh` sets agents and headless browsers from load, memory, GPU, disk and the owner's activity before every spawn: headroom while the owner works, the full machine when idle, more than the cap when AFK, half when the owner says it is slow.
+- **Headless checks never touch the owner's machine**: muted, windowless, no audio context, one launcher, at most the measured `headless` at once and none above the core count in load. A muted headless browser that opened an audio context still made the owner's speakers pop.
 - **Headless checks never use the owner's installed browser bundle**: the OS then thinks the owner's browser is running and it will not start; use a separate build ( Chrome for Testing ) through the one launcher, path overridable by env.
 
 ## Maintaining AgentKit
@@ -200,6 +212,15 @@ These are in the templates and skills; the short version, grouped.
 MIT, see [LICENSE](LICENSE). The changelog below is the same as [CHANGELOG.md](CHANGELOG.md).
 
 ## Changelog
+
+### 0.8.0
+
+- The kit measures the machine and sets the number of agents and headless browsers itself, instead of fixed caps the orchestrator guesses ( reason: a fixed six builders and three browsers stalled the owner's machine under load and left it idle at night ). New `scripts/capacity.sh [--json] [--no-disk]` ( macOS first, Linux fallbacks, no sudo ): 1-minute load against the cores, thermal limit ( `pmset -g therm` ), memory pressure, free percentage and swap, GPU utilisation ( `ioreg` IOAccelerator, `nvidia-smi` ), headless browsers of the testing build already running, disk MB/s and tps; it starts at the maxima and reduces ( load over 0.8 × cores, memory warn / critical, GPU over 70 / 90 %, thermal limit, disk over `diskMBs` ), never below 1, and prints a table with the reasons, or `{ agents, headless, free_headless, owner, reasons, measures, caps }`.
+- Owner activity decides the headroom: input within `idleMinutes` ( default 10 ) or a connection on one of `ownerPorts` is **active** ( agents −2, headless −2, GPU threshold 60 % ); idle, the hardware limits alone decide; from `afkMinutes` ( default 30 ) on, **AFK**: up to `agentsMax` + 2 while load and GPU allow, so the factory runs flat out overnight. When the owner says the machine is slow, the orchestrator halves the recommendation until told otherwise.
+- New `.factory.json` keys `agentsMax` ( 6 ), `headlessMax` ( 4; `headlessCap` read as its alias ), `diskMBs` ( 1500 ), `ownerPorts` ( [] ), `idleMinutes` ( 10 ), `afkMinutes` ( 30 ); `init.sh` writes them only where missing. `run.sh` takes its headless cap from `capacity.sh` and re-measures while it waits ( env `HEADLESS_CAP` overrides ); `board.sh state` prints the capacity under Limits; `STATE.md` gets `Capacity ( last measured )` and `Owner override` lines.
+- Rules: factory skill section 5c "Dynamic capacity" ( `capacity.sh` before every spawn and every 30 minutes with the stale check, spawn only while `agents` is above the running count, `free_headless` 0 pauses browser work, not agents ), and the matching lines in the templates' Autonomy and Branches sections and the delegation template ( factory, kanban and factory-init skills, templates, `STATE.md` template, README ).
+- The deploy is done by a **deployer agent** on the cheapest model: after a batch's merges the orchestrator triggers it, it verifies the integration tip, builds and runs the gated deploy script with read-back under the merge lock, and returns one line ( sha, entry file, read-back ) that the orchestrator records in `STATE.md`; the rule stays once per batch, never two at once, never a builder ( reason: the deploy's logs and waiting cost the orchestrator's tokens for a mechanical step ) ( templates, delegation templates, factory and kanban skills, README ).
+- `init.sh` works while GitHub's GraphQL is rate-limited: the repository from the `origin` remote, the project's name and link from the section it rendered before ( reason: a busy factory exhausts GraphQL and `init.sh` then stopped before writing anything ) ( `init.sh` ).
 
 ### 0.7.3
 
