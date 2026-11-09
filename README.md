@@ -53,11 +53,11 @@ Requirements: `gh` ( once: `gh auth refresh -s project` ), `jq`, `python3` ( `in
 ```bash
 cd my-repo
 gh auth refresh -s project                      # once
-gh project list --owner <you>                   # find or create the board, note its number
 claude                                          # then: /factory-init
-#   it asks for the project number, language preset, verify command, local run command, umbrella branches and the owner's dev port;
-#   writes the AGENTS.md / CLAUDE.md sections, .factory.json, the labels and the STATE.md skeleton, and reports columns missing
-#   on the board ( add them under Project settings > Status; switch the "Auto-add" workflows off )
+#   it finds the board linked to the repo, or one titled like it, or creates one named after the repo, links it and sets its
+#   seven columns ( scripts/project.sh ); asks for the language preset, verify command, local run command, umbrella branches
+#   and the owner's dev port; writes the AGENTS.md / CLAUDE.md sections, .factory.json, the labels and the STATE.md skeleton.
+#   Left to you: switch the first view to the Board layout and the "Auto-add" workflows off ( no API for either )
 gh issue create --label feature --title "..." --body-file ticket.md     # ticket in the template of the kanban skill
 scripts/board.sh add <issue-url> "Ready"
 claude                                          # then: "run the factory" or /factory <plan or epic>
@@ -69,7 +69,7 @@ claude                                          # then: "run the factory" or /fa
 |---|---|
 | `kanban` | The board workflow: columns and who moves what, assignees, labels, overlap search before filing, work packages, the ticket template ( checks, Assumptions, "Changed after review", branch, preview ), branch naming and umbrella branches, the merge and deploy rules, cleanup after Done, and the exact `gh` commands behind `board.sh`. |
 | `factory` | The orchestrator loop: kickoff ( `STATE.md`, `board.sh state`, assumptions, hands-off list, `caffeinate`, the watcher ), pick / prepare / delegate / review / merge / hand back / next, what needs the owner, the Monitor watcher, long sessions ( usage limits, compaction, shift leads ), the neighbour test for visible changes, the budget rules ( six builders, model mix, two phases, merge lock, read by range ), headless checks that never touch the owner's machine, and the per-ticket checklist. |
-| `factory-init` | Finds or creates the board, asks the owner's settings in one message, runs `init.sh`, tells the owner which project workflows to switch off, checks that `CLAUDE.md` imports `AGENTS.md`, commits. |
+| `factory-init` | Finds the board linked to the repository ( or one titled like it ) or creates one and sets its columns, asks the owner's settings in one message, runs `init.sh`, tells the owner which project workflows to switch off, checks that `CLAUDE.md` imports `AGENTS.md`, commits. |
 
 ## Scripts
 
@@ -79,7 +79,8 @@ All in `scripts/`, called by path ( `${CLAUDE_PLUGIN_ROOT}/scripts/...` inside C
 |---|---|
 | `board.sh ids <project> <owner> \| list [column] \| next \| status <n> \| add <url> "<col>" \| move <n> "<col>" \| merged <n> <sha> <branch> \| tidy \| stale [--minutes N] [--json] \| state [--json]` | Board operations with the guards built in: never sets Done, never touches a card in Done, assigns the author on In Review and removes the assignee on leaving it. `tidy` takes stray sub-issue cards off the board. `stale` ( no GitHub call ) lists every git worktree with minutes since its last commit and last file change, whether a process runs inside it, and the verdict `STALE` ( both ages over N, default 45, no process ), plus the merge lock and its age ( a lock over 30 minutes with no `mergelock.sh` process is stale ); the watchdog's eyes. `state` prints a draft of `STATE.md` from the board in one GraphQL and one REST call, with the measured capacity under Limits. |
 | `capacity.sh [--json] [--no-disk]` | Measures the machine's bottlenecks ( load against cores, thermal limit, memory pressure and swap, GPU utilisation, headless browsers running, disk MB/s ) and the owner's activity ( idle time, `ownerPorts` in use ), and recommends `agents` and `headless` for right now, between 1 and `agentsMax` / `headlessMax` ( AFK: up to `agentsMax` + 2 ). Prints a table with the reasons; `--json` gives `{ agents, headless, free_headless, owner, reasons, measures, caps }`. Read-only, no sudo, always exit 0. The orchestrator runs it before every spawn and every 30 minutes. |
-| `init.sh --project <n> [--lang en\|de] [--owner <handle>] [--name "<Full Name>"] [--verify "<cmd>"] [--run "<cmd>"] [--umbrella "a, b"] [--replace-existing] [--dry-run]` | What `factory-init` runs. Idempotent: sections are replaced between `<!-- factory:collaboration:start/end -->` and `<!-- factory:delegation:start/end -->` markers. Writes `.factory.json`, the labels, the `STATE.md` skeleton and its `.gitignore` line, then runs `board.sh ids`. Existing `.factory.json` values are the defaults for omitted flags. |
+| `init.sh [--project <n>] [--lang en\|de] [--owner <handle>] [--name "<Full Name>"] [--verify "<cmd>"] [--run "<cmd>"] [--umbrella "a, b"] [--replace-existing] [--dry-run]` | What `factory-init` runs. Idempotent: sections are replaced between `<!-- factory:collaboration:start/end -->` and `<!-- factory:delegation:start/end -->` markers. Without `--project` it runs `project.sh create`. Writes `.factory.json`, the labels, the `STATE.md` skeleton and its `.gitignore` line, adds missing columns where the board is empty ( `project.sh columns` ), then runs `board.sh ids`. Existing `.factory.json` values are the defaults for omitted flags. |
+| `project.sh create [--owner <handle>] [--repo owner/name] [--title "<title>"] \| columns <project> <owner> [--force]` | The board itself. `create` finds the project linked to the repository ( several: exit 3, pass `--project` ), else the owner's project titled like the repository ( then links it ), else creates one named after the repository and links it; lists the owner's other projects so an existing board can be chosen; prints the number. `columns` gives the Status field the preset's seven columns: an empty board gets exactly those ( GitHub's defaults dropped ), a board with cards keeps its options and gets the missing ones appended only with `--force` ( `updateProjectV2Field` replaces the option set ). Views have no API: the first view stays a table until the owner switches it to Board. |
 | `lang.sh` | The `en` and `de` presets for column names, labels and ticket wording. Sourced by the other scripts, never run. |
 | `run.sh <timeout s> <cmd...>` | Watchdog for headless work: TERM after the timeout, then kills orphaned headless Chromes. Waits first while the headless cap is reached ( `capacity.sh`'s `headless`, re-measured while it waits; without it `headlessMax` ) or the 1-minute load is above the core count. Also for a dev server in the background ( `FACTORY_LOAD_WAIT=0` ). |
 | `verify-report.sh [--quick] [--timeout 900]` | Runs the `verify` list of `.factory.json`, each under `run.sh`, and prints a ticket section with PASS / FAIL per check in the preset's wording. `--quick` skips `"slow": true` entries. Exit 1 on any FAIL. |
@@ -108,7 +109,7 @@ All in `scripts/`, called by path ( `${CLAUDE_PLUGIN_ROOT}/scripts/...` inside C
 
 ## `.factory.json`
 
-Lives at the repo root. `project` is required; everything else has a default. `init.sh` writes it, `board.sh`, `capacity.sh`, `run.sh`, `verify-report.sh` and `watch.sh` read it.
+Lives at the repo root. `project` is required ( `init.sh` fills it in, creating the board if there is none ); everything else has a default. `init.sh` writes it, `board.sh`, `capacity.sh`, `run.sh`, `verify-report.sh` and `watch.sh` read it.
 
 ```json
 {
@@ -212,6 +213,10 @@ These are in the templates and skills; the short version, grouped.
 MIT, see [LICENSE](LICENSE). The changelog below is the same as [CHANGELOG.md](CHANGELOG.md).
 
 ## Changelog
+
+### 0.8.1
+
+- The board is found or created by the kit, not by the owner ( reason: init demanded a project number and told the owner to add seven columns by hand, although the API can do both ). New `scripts/project.sh`: `create` uses the project linked to the repository, else the owner's project titled like the repository ( and links it ), else creates one named after the repository and links it, listing the owner's other projects so an existing board is chosen over a second one; `columns` gives the Status field the preset's columns through `updateProjectV2Field` ( empty board: exactly the seven, defaults dropped; board with cards: append only with `--force` ). `init.sh` runs `create` when no `--project` is given and `columns` otherwise. Rule in the factory-init skill: look at the boards that exist before creating one; an existing board for the repository is used and its columns mapped under `columns` in `.factory.json`, extended only where the workflow's column is missing. Still manual, no API: the first view's Board layout and the "Auto-add" workflows ( `project.sh`, `init.sh`, factory-init skill, README ).
 
 ### 0.8.0
 

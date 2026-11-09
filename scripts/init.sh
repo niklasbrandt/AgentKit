@@ -4,7 +4,9 @@
 # state sheet, local to the machine ) to .gitignore and creates its skeleton if missing.
 #   init.sh [--project <n>] [--owner <handle>] [--name "<Full Name>"] [--lang en|de] [--verify "<cmd>"] [--run "<local run cmd>"]
 #           [--umbrella "<branch, branch>"] [--replace-existing] [--dry-run]
-# Existing values in .factory.json are the defaults for omitted flags; the owner defaults to the repository's owner on GitHub.
+# Existing values in .factory.json are the defaults for omitted flags; the owner defaults to the repository's owner on GitHub. Without
+# --project ( and none in .factory.json ) the board is created, named after the repository, linked, and given the preset's columns
+# ( project.sh ); with one, missing columns are added when the board is empty.
 # Sections are replaced between their <!-- factory:...:start/end --> markers; an existing "## Collaboration" / "## Delegation (Claude Code)"
 # section without markers is only replaced with --replace-existing; repo-specific items of the old section ( ports, umbrella branches, canon,
 # tools ) are then moved to a "### Repo-specific" subsection after the markers and printed ( heuristic: review the result ).
@@ -25,14 +27,18 @@ REPO=$( gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null ) || R
 [ -n "$REPO" ] || { echo "init.sh: cannot tell the repository ( gh repo view failed, no GitHub origin remote )" >&2; exit 1; }
 [ -n "$OWNER" ] || OWNER=${REPO%%/*}
 [ -n "$NAME" ] || NAME=$( gh api "users/$OWNER" --jq '.name // .login' 2>/dev/null || echo "$OWNER" )
-[ -n "$PROJECT" ] || { echo "init.sh: --project <number> is required ( gh project list --owner $OWNER )" >&2; exit 2; }
 LANG_OPT=${LANG_OPT:-en}
 [ -d "$PLUGIN/templates/$LANG_OPT" ] || { echo "init.sh: no templates for --lang $LANG_OPT ( available: $( cd "$PLUGIN/templates" && ls -d */ | tr -d / | tr '\n' ' ' ))" >&2; exit 2; }
 [ -n "$VERIFY" ] || VERIFY="npm run build"
 [ -n "$RUN" ] || RUN="npm install && npm run dev"
-PJ=$( gh project view "$PROJECT" --owner "$OWNER" --format json 2>/dev/null ) || PJ=""
+NEWBOARD=0
+if [ -z "$PROJECT" ]; then
+	if [ $DRY = 1 ]; then PROJECT=0; PNAME=${REPO#*/}; PURL="https://github.com/users/$OWNER/projects/<new>"; echo "init.sh: no project: would create one named \"$PNAME\" ( dry run )" >&2
+	else PROJECT=$( "$HERE/project.sh" create --owner "$OWNER" --repo "$REPO" ) || { echo "init.sh: creating the board failed ( gh auth refresh -s project? )" >&2; exit 1; }; NEWBOARD=1; fi
+fi
+PJ=$( [ "$PROJECT" != 0 ] && gh project view "$PROJECT" --owner "$OWNER" --format json 2>/dev/null ) || PJ=""
 PNAME=$( printf '%s' "$PJ" | jq -r '.title // empty' 2>/dev/null ); PURL=$( printf '%s' "$PJ" | jq -r '.url // empty' 2>/dev/null )
-if [ -z "$PNAME" ] || [ -z "$PURL" ]; then
+if [ "$PROJECT" != 0 ] && { [ -z "$PNAME" ] || [ -z "$PURL" ]; }; then
 	# GraphQL unavailable ( rate limit ): take name and link from the section init rendered before, if there is one
 	read -r PNAME PURL < <( sed -n "s/.*( \[\(.*\) project $PROJECT\](\([^)]*\)) ).*/\1 \2/p" "$ROOT/AGENTS.md" 2>/dev/null | head -1 )
 	[ -n "$PURL" ] || { echo "init.sh: cannot read project $PROJECT of $OWNER ( gh project view; GraphQL rate limit? ) and no earlier rendered section to take its name from" >&2; exit 1; }
@@ -149,6 +155,7 @@ echo "wrote $CFG"
 declare -a L=( "$D_L_IDEA:FBCA04:Idea, not yet specified" "feature:1D76DB:New capability" "bug:D73A4A:Something is broken" "documentation:0075CA:Docs only" "$D_L_MERGED:0E8A16:Agent merged the branch, waiting for the owner's review" )
 for l in "${L[@]}"; do IFS=: read -r n c d <<< "$l"; gh label create "$n" --repo "$REPO" --color "$c" --description "$d" >/dev/null 2>&1 && echo "label $n created" || echo "label $n exists"; done
 
-# the board's columns
-"$HERE/board.sh" ids "$PROJECT" "$OWNER" || { echo "init.sh: add the missing columns in the project's Status field ( Project settings > Status )" >&2; rc=1; }
+# the board's columns: added by the API while the board is empty ( project.sh ), otherwise reported
+[ $NEWBOARD = 1 ] || "$HERE/project.sh" columns "$PROJECT" "$OWNER" || true
+"$HERE/board.sh" ids "$PROJECT" "$OWNER" || { echo "init.sh: add the missing columns in the project's Status field ( Project settings > Status, or project.sh columns $PROJECT $OWNER --force )" >&2; rc=1; }
 exit $rc
