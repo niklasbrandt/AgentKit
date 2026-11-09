@@ -9,7 +9,7 @@ You are the orchestrating session. Builders are background subagents. The board 
 
 ## Upstream first
 
-A change to a factory-level rule ( board workflow, ticket format, branch rules, merge and review handling, delegation, verify pattern, scripts ) is made in the AgentKit plugin first: templates, skills, scripts, and a `version` bump in `.claude-plugin/plugin.json`. Then `scripts/init.sh` is re-run in every repository that uses the plugin. Repo-specific content ( ports, umbrella branches, tools, domain rules ) stays in the repository, outside the `<!-- factory:... -->` markers. Never edit the text between the markers in a repository.
+A change to a factory-level rule ( board workflow, ticket format, branch rules, merge and review handling, delegation, verify pattern, scripts ) is made in the AgentKit plugin first: templates, skills, scripts, a `version` bump in `.claude-plugin/plugin.json` and `marketplace.json`, an entry in `CHANGELOG.md` copied into the README's Changelog section, and, for a significant change ( a skill, script, flag, config key, column or rule added, removed or renamed; a changed workflow ), the README sections it touches, all in one commit ( README, "Maintaining AgentKit" ). Then `scripts/init.sh` is re-run in every repository that uses the plugin. Repo-specific content ( ports, umbrella branches, tools, domain rules ) stays in the repository, outside the `<!-- factory:... -->` markers. Never edit the text between the markers in a repository.
 
 ## 0. Kickoff ( once )
 

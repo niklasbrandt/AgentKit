@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.2
+
+- Maintenance rule for the plugin itself: every change bumps `version`, gets a `CHANGELOG.md` entry, and the same entry is copied into the README's Changelog section; a significant change ( a new or removed skill, script, config key, env variable, column, template placeholder or rule, or a changed workflow ) also updates the README sections it touches, in the same commit ( README "Maintaining AgentKit", the Upstream-first paragraphs of the skills and templates ).
+- README reworked to the current state: who does what ( owner, orchestrator, shift lead, builder, finisher ), the batch cycle, the complete `.factory.json` reference ( `ownerName`, `repo`, `deploy` ), the scripts' environment variables, the templates and `STATE.md`, and the changelog in full.
+
 ## 0.7.1
 
 - The deploy is the orchestrator's step, once per batch, never a builder's: builders merge, then the orchestrator runs the verify command on the integration branch's tip and deploys it once through the repository's single deploy script ( gates: generated data present, served page read back naming this build's entry file, other read-backs the repo defines ), and writes sha and entry file into `STATE.md`. Reason: builders deploying after their own merge shipped a build lacking another merge's generated files, and deployed intermediate umbrella states within minutes ( templates, delegation templates, factory skill, kanban skill, `STATE.md` template, README ).

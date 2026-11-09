@@ -3,7 +3,7 @@
 
 This section is rendered by the AgentKit plugin ( `{{PLUGIN_URL}}` ). Change the rules there, then re-run `init.sh`; repo-specific rules go outside the markers ( a `### Repo-specific` subsection ).
 
-**Upstream first.** A change to a factory-level rule ( board workflow, ticket format, branch rules, merge and review handling, delegation, verify pattern, scripts ) is made in the plugin first ( templates, skills, scripts; bump `version` in `.claude-plugin/plugin.json` ), then `init.sh` is re-run in every repository that uses the plugin. Repo-specific content ( ports, umbrella branches, tools, domain rules ) stays in the repository, outside the markers.
+**Upstream first.** A change to a factory-level rule ( board workflow, ticket format, branch rules, merge and review handling, delegation, verify pattern, scripts ) is made in the plugin first ( templates, skills, scripts; bump `version`, add the `CHANGELOG.md` entry and its copy in the README, and update the README sections a significant change touches: README "Maintaining AgentKit" ), then `init.sh` is re-run in every repository that uses the plugin. Repo-specific content ( ports, umbrella branches, tools, domain rules ) stays in the repository, outside the markers.
 
 Work on this repository is coordinated through the GitHub Project board. The kanban board
 ( [{{PROJECT_NAME}} project {{PROJECT}}]({{PROJECT_URL}}) ) is the single source of truth for
