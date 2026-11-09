@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.0
+
+- Belongs-there acceptance for visible changes: built from the existing module set ( no second type of an element ), the builder hands over context captures beside the nearest neighbours ( same scale, same state, plus the domain's overview views ), the reviewer judges "looks as if it had always been there" and names the neighbour comparison in the review comment, never accepts on the absence of the old flaw; an automatic neighbour check joins the verify command where the repo has one ( templates, ticket template, kanban skill, factory skill 4b and checklist, delegation templates, README ).
+
 ## 0.6.1
 
 - Headless checks never run the owner's installed browser bundle ( the OS then treats every headless instance as the browser running; focus, keyboard and audio session go to the wrong process ): a separate build ( Chrome for Testing in a cache folder ) through the repo's launcher with an env override for the path ( templates, factory skill 5b, factory-init, `run.sh`, README ).

@@ -85,6 +85,16 @@ Never ask the owner to start a new session; the factory renews itself.
 - **Shift leads.** Per batch of tickets, start one long-lived orchestrator subagent, the shift lead. It reads `STATE.md`, starts and reviews the builders, merges, and hands back only decisions and short summaries. When its context grows large it rewrites `STATE.md` and reports; you start the next shift lead. The root session stays thin and permanent, and `STATE.md` names the current shift lead under Running.
 - **A scheduled routine** that rehydrates a fresh run from `STATE.md` is optional, and only where the environment allows it.
 
+## 4b. Visible changes: the neighbour test
+
+A fix that removes the flaw a reviewer flagged can still add a new one: the element is right in isolation and looks nothing like what stands next to it. So for every visible change ( UI, geometry, a page, a component ):
+
+- **Build from the existing set.** The same window type, control style, spacing, materials and fonts as the neighbours; never the builder's own variant. No second type of an element where one type exists.
+- **Builder hands over context captures:** the new element side by side with its nearest existing neighbours of the same kind, same distance / scale, same state ( day and night, hover and rest ), plus the overview views the domain demands ( 3D: usual distance, from below, from above, close ), and a line on what differs and why that is intended.
+- **Reviewer never accepts on the absence of the previous flaw.** Acceptance is "it looks as if it had always been there", judged against the neighbours; the review comment names the neighbour comparison with the capture paths.
+- **Automate where the repo can** ( a neighbour crop sheet, an element-type histogram, a material scale check ) and put it in the verify command; until then make the sheet by hand.
+- The builder prompt asks for the captures and names the neighbours ( delegation template ).
+
 ## 5. Budget: the usage window
 
 The account's usage limit is a token budget per 5-hour window, shared by the orchestrator and every builder. Parallelism changes when the window runs out, not how much gets built per window; the model mix and the tokens per ticket do.
@@ -116,4 +126,4 @@ The account's usage limit is a token budget per 5-hour window, shared by the orc
 
 ## 6. Checklist per ticket
 
-card in In Progress (Agent) -> branch + worktree + install + ports -> subagent with model and effort -> verify green ( headless cap respected ) -> assumptions read and surfaced -> merged tree verified -> merged and pushed in one chain -> deployed and read back ( if the repo deploys ) -> `merged` line + label -> review comment on the ticket -> In Review -> `STATE.md` rewritten -> next ticket.
+card in In Progress (Agent) -> branch + worktree + install + ports -> subagent with model and effort -> verify green ( headless cap respected ) -> visible change: neighbour comparison captured and judged -> assumptions read and surfaced -> merged tree verified -> merged and pushed in one chain -> deployed and read back ( if the repo deploys ) -> `merged` line + label -> review comment on the ticket -> In Review -> `STATE.md` rewritten -> next ticket.

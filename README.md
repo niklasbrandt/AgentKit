@@ -114,6 +114,7 @@ These are in the templates and skills; the short version:
 - **Six builders at once, Sonnet for the mechanical tickets.** The usage limit is a shared token budget per window; eight Opus builders empty it in three hours and idle for two.
 - **Work packages, not forty cards.** Tickets that share files become one topic card with sub-issues; the owner sorts topics, one builder runs the package on one branch, every sub-issue keeps its own checks and merged line.
 - **Search before you file.** Two halves of one problem are one ticket; extend, don't duplicate.
+- **Visible changes pass the neighbour test.** A reviewer accepted a change because the flagged flaw was gone, while the new element looked nothing like its neighbours; now the builder hands over context captures beside the nearest neighbours and the review comment names the comparison.
 - **Nothing executable on a server, ever.** A deploy ships the built site and static assets; free space comes from FTP commands, the owner's panel, or is reported as unknown.
 
 ## Changelog and licence

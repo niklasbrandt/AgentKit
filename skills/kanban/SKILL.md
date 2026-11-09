@@ -63,6 +63,7 @@ Tickets are written in the repository's ticket language ( the `lang` preset ); d
 
 **How to check**
 - [ ] <a concrete check the owner can do in the browser, headset or with one command>
+- [ ] <visible changes: context captures next to the nearest existing neighbours ( same distance, same state ): <paths>; what differs and why>
 
 **Assumptions**                                 ( what the agent decided itself because the repo did not answer it )
 - <assumption> — <why> — <what it touches>
@@ -80,7 +81,7 @@ Tickets are written in the repository's ticket language ( the `lang` preset ); d
 - Changes requested after a review never go into the original checklist; they get their own section "Changed after review – please re-check". A fix pass after the owner's review runs on the same branch; the card goes back to In Progress (Agent) first.
 - Reference assets the owner supplies ( images, files ) are committed with speaking names in the project's reference folder and also attached with `gh issue create --attach`.
 - A finished check report ( `scripts/verify-report.sh` ) can be added as a comment: `scripts/verify-report.sh | gh issue comment <n> --body-file -`.
-- The orchestrator's review goes on the ticket as a comment ( "Review (Orchestrator)" ): what was checked with numbers, what the owner has to judge, what follow-up tickets were opened.
+- The orchestrator's review goes on the ticket as a comment ( "Review (Orchestrator)" ): what was checked with numbers, what the owner has to judge, what follow-up tickets were opened. For a visible change it names the **neighbour comparison** ( "Nachbarvergleich" in `de` ) with the capture paths and says whether the element looks as if it had always been there; "the old flaw is gone" is never the acceptance.
 
 ## Branches
 
