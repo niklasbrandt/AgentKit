@@ -18,7 +18,7 @@
 #   disk MB/s > "diskMBs"       agents -1   ( .factory.json, default 1500, an NVMe drive under heavy use )
 # Never below 1 agent and 1 headless browser. free_headless = headless minus the headless browsers already running ( never below 0 ).
 # --json: { agents, headless, free_headless, reasons, owner: "active" | "idle Nm" | "afk", measures: { … }, caps: { … } }. Always exits 0.
-# FACTORY_JSON overrides the config path.
+# FACTORY_JSON overrides the config path. FACTORY_OWNER=afk|active or the file /tmp/factory-owner ( "afk" / "active", afk ignored after 12 h ) overrides the owner measurement.
 JSON=0; DISK=1
 for a in "$@"; do case "$a" in --json) JSON=1 ;; --no-disk) DISK=0 ;; *) echo "usage: capacity.sh [--json] [--no-disk]" >&2; exit 0 ;; esac; done
 
@@ -47,6 +47,14 @@ for p in $OPORTS; do
 done
 IMIN=$( cfg .idleMinutes 10 ); AMIN=$( cfg .afkMinutes 30 )
 if [ -n "$BUSYP" ] || [ "$IDLE" -lt $(( IMIN * 60 )) ]; then OWNER=active; elif [ "$IDLE" -lt $(( AMIN * 60 )) ]; then OWNER="idle $(( IDLE / 60 ))m"; else OWNER=afk; fi
+# owner override: /tmp/factory-owner ( or FACTORY_OWNER ) holding "afk" or "active" wins over the measurement, e.g. when the owner says
+# "I am away now" ( no 30-minute wait ) or "I am testing" ( no idle detection on a second machine ). An "afk" file older than 12 h is ignored.
+OVR=${FACTORY_OWNER:-}
+if [ -z "$OVR" ] && [ -f /tmp/factory-owner ]; then
+	AGE=$(( $( date +%s ) - $( stat -f %m /tmp/factory-owner 2>/dev/null || stat -c %Y /tmp/factory-owner 2>/dev/null || echo 0 ) ))
+	[ "$AGE" -lt 43200 ] && OVR=$( tr -d '[:space:]' < /tmp/factory-owner )
+fi
+case "$OVR" in afk) OWNER=afk; OVRNOTE="owner override: afk ( /tmp/factory-owner )" ;; active) OWNER=active; OVRNOTE="owner override: active" ;; *) OVRNOTE="" ;; esac
 
 # CPU
 CORES=$( sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo "" )
@@ -101,6 +109,7 @@ fi
 # recommendation
 AG=$AMAX; HL=$HMAX; R=(); GT=70
 [ "$OWNER" = active ] && GT=60
+[ -n "$OVRNOTE" ] && R+=( "$OVRNOTE" )
 if [ "$OWNER" = afk ] && num "$LOAD" && num "$CORES" && awk -v l="$LOAD" -v c="$CORES" 'BEGIN { exit !( l <= 0.8 * c ) }' && { ! num "$GPU" || [ "$GPU" -le 70 ]; }; then
 	AG=$(( AMAX + 2 )); R+=( "owner afk, load and GPU low: agents $AMAX + 2" )
 fi

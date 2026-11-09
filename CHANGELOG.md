@@ -2,6 +2,10 @@
 
 ## 0.9.1
 
+- Owner override for the capacity measurement: `FACTORY_OWNER=afk|active` or the machine-wide file `/tmp/factory-owner` holding `afk` or `active` wins over the idle-time measurement; an `afk` file older than 12 h is ignored ( reason: the owner said "I am away now, go" and the factory still waited 30 minutes for the idle detector; conversely a second machine or a remote session has no idle signal ). The orchestrator writes `afk` when the owner announces leaving and removes the file ( or writes `active` ) when they return; the reasons list names the override ( `capacity.sh`, README ).
+
+## 0.9.1
+
 - The board's view and workflows join the automatic setup ( reason: after the columns, the owner still had to rename the view, switch it to Board and check the workflows by hand ). `project.sh view` makes one Board view named `kanban` ( `.factory.json` key `view` ): GitHub's default table "View 1" is renamed and switched through `updateProjectV2View`, a same-named view is switched, otherwise one is created and the owner's views stay. `project.sh workflows` lists the built-in workflows and warns when Auto-add, Item closed or Auto-close is on. `create` and `init.sh` run both. Found to have no API, so still manual: the project's "Default repository" setting and switching a workflow on or off ( `project.sh`, `init.sh`, factory-init skill, README ).
 
 ## 0.9.0
