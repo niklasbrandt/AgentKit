@@ -7,6 +7,7 @@
 # Guard before the start: while the 1-minute load average is above the core count, or "headlessCap" ( .factory.json, default 3 ) headless
 # Chromes already run on this machine, it waits ( one line on stderr ), at most FACTORY_LOAD_WAIT seconds ( default 600; 0 = no guard ),
 # then runs anyway. Headless browsers share the GPU with the owner's browser.
+# The cap counts browsers of the testing build ( Chrome for Testing in a cache folder ), never the owner's installed browser bundle.
 # FACTORY_CHROME_PATTERN overrides the pattern that identifies the Chromes ( default: puppeteer_dev_chrome_profile ).
 if [ $# -lt 2 ]; then echo "usage: run.sh <timeout s> <command> [args...]" >&2; exit 2; fi
 T=$1; shift

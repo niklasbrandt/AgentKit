@@ -105,6 +105,7 @@ These are in the templates and skills; the short version:
 - **The orchestrator keeps `STATE.md`** (gitignored): running agents, waits, queue, open owner decisions, limits, last hand-backs, notes, rewritten at every hand-back, spawn and owner decision. Long sessions lost exactly what was in no ticket.
 - **A fresh session reads `STATE.md`, then `board.sh state`**, and never asks the owner to open a new one: compaction plus the sheet is lossless, and shift-lead subagents keep the root session thin.
 - **Headless checks never touch the owner's machine**: muted, windowless, no audio context, one launcher, at most three at once and none above the core count in load. A muted headless browser that opened an audio context still made the owner's speakers pop.
+- **Headless checks never use the owner's installed browser bundle**: the OS then thinks the owner's browser is running and it will not start; use a separate build ( Chrome for Testing ) through the one launcher, path overridable by env.
 - **Usage limits pause builders; they do not kill them.** Resume each with a message after the window resets.
 - **Ask for a hands-off list at kickoff**: areas the owner wants to decide in person first; do not touch them, not even with drafts.
 - **Never two performance measurements at once.**
