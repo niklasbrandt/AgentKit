@@ -31,6 +31,8 @@ Shift lead: <agent / none>
 
 ## Last hand-backs
 
+<!-- Deployed entry file: written by the orchestrator after the batch deploy, never by a builder. -->
+
 | Ticket | Sha | Deployed entry | Date |
 |---|---|---|---|
 

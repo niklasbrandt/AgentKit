@@ -46,7 +46,7 @@ Rules:
 - Read a card's current status before moving it. Agents move cards only to Ready, In Progress (Agent) or In Review.
 - Every change request the owner mentions goes into its ticket and onto the board right away: update the checklist or open a new short ticket, and move the card back to In Progress (Agent) if it was in review. Never keep working on a ticket in In Review: move it back first and remove the review assignee.
 - A card goes to In Review only once its branch is pushed, and is assigned to the ticket's author immediately ( `board.sh move` does both ).
-- **Autonomy:** after reviewing its own work ( all checks in the ticket done, the verify command passes, smoke test of the merged tree ) an agent merges the branch itself into `main`, or into the umbrella branch the ticket or epic names. The card still goes to In Review, gets the label `merged` and a line `**Merged:** <sha> in <branch>` in the ticket ( `board.sh merged` ). Changes the owner asks for afterwards go through the same branch and are merged again.
+- **Autonomy:** after reviewing its own work ( all checks in the ticket done, the verify command passes, smoke test of the merged tree ) an agent merges the branch itself into `main`, or into the umbrella branch the ticket or epic names. The card still goes to In Review, gets the label `merged` and a line `**Merged:** <sha> in <branch>` in the ticket ( `board.sh merged` ). Builders never deploy: the orchestrator deploys once per batch from the verified tip and records the deployed state in `STATE.md`. Changes the owner asks for afterwards go through the same branch and are merged again.
 - Only the owner moves a card to Done.
 - When you name a ticket to the owner, name its title too: "#31 ( Title )", never a bare number.
 
@@ -95,7 +95,7 @@ One ticket or one work package, one branch, one git worktree; never bundle unrel
 - **Merge, test, push in one `&&` chain**, never with `;`. A push must never go out before the test result is read.
 - A build must leave the working tree clean: a file the build regenerates is ignored or committed, never left dirty at merge time.
 - Generated data ( tiles, caches, renders, datasets ) stays out of git whatever its size; the ticket says where it lives and how it is rebuilt. Hosting is the owner's decision.
-- A deploy is finished when the served page has been read back and names this build's entry file. Deploy scripts upload the entry page every time.
+- The orchestrator deploys, once per batch, from the integration branch's tip after the verify command passed on it, through the repo's single deploy script. A deploy is finished when the served page has been read back and names this build's entry file. Deploy scripts upload the entry page every time.
 - **Cleanup only after the card is in Done** ( until then the owner can still ask for changes ): `git push origin --delete <branch>`, `git worktree remove <path>`.
 - Several agents run at once: each dev server gets its own port ( the app's fixed default or `--port <n>` ), and an agent stops only the processes it started, by PID. The owner's own dev server port is never touched.
 - Merging into a worktree another agent works in changes files under it: say so in the ticket, and prefer to merge when that agent is between steps.

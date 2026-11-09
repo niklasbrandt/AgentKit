@@ -98,6 +98,7 @@ These are in the templates and skills; the short version:
 - **Merge, test, push in one `&&` chain.** A `;` once pushed a branch before its smoke test had been read.
 - **A build must leave the tree clean.** A file the build regenerates is ignored or committed, never left dirty at merge time.
 - **Generated data stays out of git**, however small the estimate was. Record where it lives and how it is rebuilt; hosting is the owner's call.
+- **The orchestrator deploys, once per batch, never a builder.** Builders that each deployed after their own merge shipped a build missing another merge's generated files and broke the live page; the deploy is one step from the verified tip through one gated script.
 - **A deploy is done when the served page is checked**, not when the upload returns. A deploy that skipped unchanged-size files served a stale entry page for two days while every new bundle was uploaded.
 - **New worktrees need their dependencies installed** before any check runs in them.
 - **Review findings become tickets**, not side fixes: a flaw found while reviewing ticket A beyond its scope gets its own short ticket.
@@ -109,7 +110,7 @@ These are in the templates and skills; the short version:
 - **Usage limits pause builders; they do not kill them.** Resume each with a message after the window resets.
 - **Ask for a hands-off list at kickoff**: areas the owner wants to decide in person first; do not touch them, not even with drafts.
 - **Never two performance measurements at once.**
-- **Two phases per ticket.** Opus builds, a Sonnet finisher verifies, captures, writes the ticket, merges under the lock and deploys: a third of the tokens at a fifth of the price.
+- **Two phases per ticket.** Opus builds, a Sonnet finisher verifies, captures, writes the ticket, merges under the lock ( the orchestrator deploys, once per batch ): a third of the tokens at a fifth of the price.
 - **Read by range, never whole.** A generated module map tells builders where to look in big files.
 - **Six builders at once, Sonnet for the mechanical tickets.** The usage limit is a shared token budget per window; eight Opus builders empty it in three hours and idle for two.
 - **Work packages, not forty cards.** Tickets that share files become one topic card with sub-issues; the owner sorts topics, one builder runs the package on one branch, every sub-issue keeps its own checks and merged line.

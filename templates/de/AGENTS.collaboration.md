@@ -29,7 +29,7 @@ Seven columns: **Epics**, **Backlog** ( ideas included ), **Bereit**, **In Arbei
 - **Agents merge their own work**: once an agent has reviewed its work ( every check in the ticket done, `{{VERIFY}}` passes, smoke test of the merged tree ), it merges the branch itself into `main`, or into the umbrella branch the ticket or its epic
   names ( stacked work ). The card then goes to **Zur Review** as usual, gets the label `gemergt` and a line
   `**Gemergt:** <sha> in <branch>` in the ticket, so {{OWNER_NAME}} sees what was done and checks it there. Changes they ask for afterwards go
-  through the same branch and are merged again.
+  through the same branch and are merged again. **Builders merge; they never deploy.** Only the orchestrating session ( or its shift lead ) deploys, see Branches.
 - Only a human ( {{OWNER_NAME}} ) moves a card to **Fertig**: their review is done. Never set Fertig, and never touch a card that is already in Fertig.
 - The plugin's `scripts/board.sh` does these moves ( `board.sh move <issue> "Zur Review"`, `board.sh merged <issue> <sha> <branch>` ); settings live in `.factory.json`.
 
@@ -86,7 +86,7 @@ names an umbrella branch ( stacked work{{UMBRELLA_NOTE}} ): then branch from tha
 - Bring `main` in by merging it into the branch, never by rebasing a pushed branch. No force-push.
 - Merge, verify and push run under the plugin's merge lock ( `scripts/mergelock.sh` ), one builder at a time per repository, so nobody verifies twice because the branch moved.
 - **Merge, test, push in one chain with `&&`**, never with `;`: `git merge … && <verify> && git push …`. A push must never go out before the test result is read.
-- A deploy is finished when the served page has been read back and names this build's entry file, not when the upload returns. Deploy scripts upload the entry page every time.
+- **The orchestrator deploys, once per batch, never a builder.** After the merges of a batch, `{{VERIFY}}` runs on the integration branch's tip ( `main` or the umbrella ) and passes on exactly that tip; then the orchestrator deploys that tip through the repository's single deploy script, which carries its own gates ( generated data present, the served page read back and naming this build's entry file, any other read-back the repo defines ). The sha and entry file go into `STATE.md` ( Last hand-backs ) and, where the repo wants it, as a line on the package card. A builder's prompt has no deploy step; a builder that needs a deployed state to test says so in its hand-over. A deploy is finished when the served page has been read back and names this build's entry file, not when the upload returns. Deploy scripts upload the entry page every time.
 - A deploy ships the built site and static assets, nothing else: **never an executable server-side file** ( PHP, CGI, shell scripts, handlers in `.htaccess` ), not even briefly, and no server configuration or new credentials. Free space and quotas come from the server's own FTP commands, from {{OWNER_NAME}}'s control panel, or are reported as unknown so {{OWNER_NAME}} decides.
 - A build must leave the working tree clean. A file a build regenerates is either ignored or committed, never left dirty at merge time.
 - Generated data of any size ( tiles, caches, renders, datasets ) stays out of git: ignore it and write where it lives and how it is rebuilt into the ticket. Hosting it is {{OWNER_NAME}}'s decision.
