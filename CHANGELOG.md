@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.2
+
+- Headless rule extended to every process that could open an audio device, not only browsers: Blender runs with `-noaudio`, ffmpeg never plays back, Python / Node audio libraries stay off ( reason: a Blender authoring run without the flag opened CoreAudio on every start and the owner heard the output device switch while all headless browsers were already muted and audio-gated ) ( templates' Branches section, factory skill 5b, README ).
+
 ## 0.9.1
 
 - Owner override for the capacity measurement: `FACTORY_OWNER=afk|active` or the machine-wide file `/tmp/factory-owner` holding `afk` or `active` wins over the idle-time measurement; an `afk` file older than 12 h is ignored ( reason: the owner said "I am away now, go" and the factory still waited 30 minutes for the idle detector; conversely a second machine or a remote session has no idle signal ). The orchestrator writes `afk` when the owner announces leaving and removes the file ( or writes `active` ) when they return; the reasons list names the override ( `capacity.sh`, README ).

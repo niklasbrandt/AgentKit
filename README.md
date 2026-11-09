@@ -191,7 +191,7 @@ These are in the templates and skills; the short version, grouped.
 **Headless checks**
 
 - **The machine is measured, not guessed.** Fixed caps ( six builders, three browsers ) stalled the owner's machine under load and left it idle at night. `capacity.sh` sets agents and headless browsers from load, memory, GPU, disk and the owner's activity before every spawn: headroom while the owner works, the full machine when idle, more than the cap when AFK, half when the owner says it is slow.
-- **Headless checks never touch the owner's machine**: muted, windowless, no audio context, one launcher, at most the measured `headless` at once and none above the core count in load. A muted headless browser that opened an audio context still made the owner's speakers pop.
+- **Headless checks never touch the owner's machine**: muted, windowless, no audio context ( and no other headless process opens an audio device: Blender `-noaudio`, ffmpeg without playback ), one launcher, at most the measured `headless` at once and none above the core count in load. A muted headless browser that opened an audio context still made the owner's speakers pop.
 - **Headless checks never use the owner's installed browser bundle**: the OS then thinks the owner's browser is running and it will not start; use a separate build ( Chrome for Testing ) through the one launcher, path overridable by env.
 
 ## Maintaining AgentKit
@@ -215,6 +215,10 @@ These are in the templates and skills; the short version, grouped.
 MIT, see [LICENSE](LICENSE). The changelog below is the same as [CHANGELOG.md](CHANGELOG.md).
 
 ## Changelog
+
+### 0.9.2
+
+- Headless rule extended to every process that could open an audio device, not only browsers: Blender runs with `-noaudio`, ffmpeg never plays back, Python / Node audio libraries stay off ( reason: a Blender authoring run without the flag opened CoreAudio on every start and the owner heard the output device switch while all headless browsers were already muted and audio-gated ) ( templates' Branches section, factory skill 5b, README ).
 
 ### 0.9.1
 
