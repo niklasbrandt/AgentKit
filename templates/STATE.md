@@ -1,17 +1,17 @@
 # STATE
 
-The orchestrator's state sheet ( AgentKit ). Local to this machine, gitignored. Rewritten, not appended, at every hand-back, every spawn and every owner decision. A fresh session reads this first, then `board.sh state`.
+The orchestrator's state sheet ( AgentKit ). Local to this machine, gitignored. Rewritten, not appended, at every hand-back, every spawn and every owner decision. `Last progress` is the time of the agent's last commit, note or message ( `board.sh stale` shows it per worktree ); the watchdog reads it every 30 minutes. A fresh session reads this first, then `board.sh state`.
 
 ## Running
 
 Shift lead: <agent / none>
 
-| Ticket | Title | Agent / model | Worktree | Ports | Started | Phase |
-|---|---|---|---|---|---|---|
+| Ticket | Title | Agent / model | Worktree | Ports | Started | Last progress | Phase |
+|---|---|---|---|---|---|---|---|
 
 ## Waiting
 
-- <ticket> → <waits for what>
+- <ticket> → <waits for what, since when>
 
 ## Queue
 

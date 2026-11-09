@@ -114,6 +114,7 @@ board.sh add <issue-url> "<column>"   # put an issue on the board
 board.sh move <issue> "<column>"      # reads the status first; refuses Done (as target or source); In Review assigns the author, leaving it removes the assignee
 board.sh merged <issue> <sha> <branch>  # **Merged:** line + label merged + author as assignee
 board.sh tidy                         # cards without a column whose issue is a sub-issue: off the board
+board.sh stale [--minutes N] [--json]  # per worktree: last commit / last change ( min ), processes, verdict STALE ( default N = 45 ); the merge lock and its age (read-only)
 board.sh state [--json]               # draft of STATE.md: In Progress (Agent), In Review + merged with the merged line, Ready top 10, Backlog top 5,
                                       #   the owner's cards, cards without a column; 1 GraphQL + 1 REST call (read-only)
 ```

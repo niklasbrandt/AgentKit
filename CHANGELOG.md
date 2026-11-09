@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.3
+
+- Stalled agents are detected and replaced without the owner ( reason: a finishing agent stood for two hours with no commit, no running process and no message, and the owner noticed first ). `board.sh stale [--minutes N] [--json]`: per git worktree the minutes since the last commit and the last file change, whether a process runs inside it, the verdict `STALE`, and the merge lock with its age. Heartbeat rule for builders: a commit or a one-line note at least every 30 minutes, a one-line "waiting on X for Y" instead of silence, never more than 20 minutes on a lock or another agent without reporting. Watchdog rule for the orchestrator ( factory skill 4c ): `board.sh stale` every 30 minutes, one ping at 45 minutes without progress, stop and a successor on the same worktree 20 minutes later, never wait on an agent for more than an hour. `STATE.md`'s Running table gets a `Last progress` column ( templates, delegation templates, factory and kanban skills, README ).
+
 ## 0.7.2
 
 - Maintenance rule for the plugin itself: every change bumps `version`, gets a `CHANGELOG.md` entry, and the same entry is copied into the README's Changelog section; a significant change ( a new or removed skill, script, config key, env variable, column, template placeholder or rule, or a changed workflow ) also updates the README sections it touches, in the same commit ( README "Maintaining AgentKit", the Upstream-first paragraphs of the skills and templates ).

@@ -9,6 +9,7 @@
 #   board.sh merged <issue> <sha> <branch>   add the line "**Merged:** <sha> in <branch>", the label and the author as assignee
 #   board.sh tidy                         take cards without a column off the board when their issue is a sub-issue of a package ( GitHub's auto-add puts them back )
 #   board.sh state [--json]               a draft of STATE.md from the board: running, queue, owner's cards, last hand-backs, cards without a column ( read-only )
+#   board.sh stale [--minutes N] [--json]   per git worktree: minutes since the last commit and the last file change, running processes, verdict STALE ( default N = 45 ); the merge lock and its age ( read-only )
 # Settings come from .factory.json at the repo root ( or $FACTORY_JSON ). "project" is required, the rest optional:
 #   { "project": 1, "owner": "<GitHub handle; default: the repo's owner>", "reviewer": "<default: owner>", "repo": "owner/name",
 #     "lang": "en" | "de"    ( preset for column names, labels and wording; see lang.sh; default en ),
@@ -207,8 +208,8 @@ cmd_state() {
 		[ "# STATE ( draft from the board, \(.at) )", "",
 		  ( if .board then empty else "> The board ( GraphQL ) could not be read, probably rate-limited: only the REST part below. Retry in a few minutes.\n" end ),
 		  "## Running", "", "Shift lead: <agent / none>", "",
-		  "| Ticket | Title | Agent / model | Worktree | Ports | Started | Phase |", "|---|---|---|---|---|---|---|",
-		  ( .running // [] | .[] | "| #\(.number) | \(.title) | ? | ? | ? | ? | build / finish / fix |" ), "",
+		  "| Ticket | Title | Agent / model | Worktree | Ports | Started | Last progress | Phase |", "|---|---|---|---|---|---|---|---|",
+		  ( .running // [] | .[] | "| #\(.number) | \(.title) | ? | ? | ? | ? | ? | build / finish / fix |" ), "",
 		  "## Waiting", "", "- <ticket> → <waits for what>", "",
 		  "## Queue", "",
 		  ( if .ready == null then "- ?" else ( ( .ready | to_entries[] | "\(.key + 1). \(.value | row) ( \($ready) )" ),
@@ -230,9 +231,67 @@ cmd_state() {
 		] | .[] end'
 }
 
+# stale [--minutes N] [--json]: the watchdog's eyes. For every worktree of this repository: last commit, last change of any file
+# ( node_modules, dist, .git excluded ), whether a process runs inside it ( ps, not lsof +D ), verdict STALE when both ages exceed N and no process runs.
+# Needs no board access ( no gh call ). A merge lock older than 30 minutes with no mergelock.sh process is reported as stale.
+mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || echo 0; }
+newest_change() { # newest_change <dir>: epoch seconds of the newest file, empty if none
+	find "$1" \( -name node_modules -o -name dist -o -name .git \) -prune -o -type f -print0 2>/dev/null \
+		| xargs -0 stat -f %m 2>/dev/null | sort -n | tail -1 || true
+}
+cmd_stale() {
+	local mins=45 json=0
+	while [ $# -gt 0 ]; do case "$1" in
+		--minutes) mins=${2:?--minutes needs a number}; shift ;; --json) json=1 ;;
+		*) echo 'usage: board.sh stale [--minutes N] [--json]' >&2; exit 2 ;; esac; shift; done
+	case "$mins" in ''|*[!0-9]*) echo "board.sh: --minutes needs a whole number" >&2; exit 2 ;; esac
+	local now ps_out rows="" path branch c f cm fm procs verdict
+	now=$( date +%s ); ps_out=$( ps -axo pid,command 2>/dev/null || true )
+	while IFS= read -r path; do
+		[ -d "$path" ] || continue
+		branch=$( git -C "$path" symbolic-ref --short -q HEAD 2>/dev/null || echo "(detached)" )
+		c=$( git -C "$path" log -1 --format=%ct 2>/dev/null || echo 0 ); c=${c:-0}
+		f=$( newest_change "$path" ); f=${f:-0}; [ "$f" -ge "$c" ] || f=$c
+		cm=$(( ( now - c ) / 60 )); fm=$(( ( now - f ) / 60 ))
+		procs=$( printf '%s\n' "$ps_out" | P="$path" SELF="$$ $PPID" awk '
+			BEGIN { n = split( ENVIRON["SELF"], s, " " ) }
+			{ for ( i = 1; i <= n; i++ ) if ( $1 == s[i] ) next
+			  cmd = $0; sub( /^ *[0-9]+ +/, "", cmd ); p = ENVIRON["P"]; i = index( cmd, p )
+			  if ( i == 0 ) next
+			  nx = substr( cmd, i + length( p ), 1 ); if ( nx == "" || nx == "/" || nx == " " || nx == "\"" ) k++ }
+			END { print k + 0 }' )
+		verdict=ok; [ "$cm" -gt "$mins" ] && [ "$fm" -gt "$mins" ] && [ "$procs" -eq 0 ] && verdict=STALE
+		rows+="$path"$'\t'"$branch"$'\t'"$cm"$'\t'"$fm"$'\t'"$procs"$'\t'"$verdict"$'\n'
+	done < <( git worktree list --porcelain 2>/dev/null | awk '/^worktree /{ sub( /^worktree /, "" ); p = $0 } /^bare/{ p = "" } /^$/ { if ( p != "" ) print p; p = "" } END { if ( p != "" ) print p }' )
+	# the merge lock of mergelock.sh ( same key )
+	local common lock="" lage="" lstate="none" holders base
+	common=$( git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || git rev-parse --git-common-dir 2>/dev/null || pwd )
+	base=${FACTORY_LOCK:-/tmp/factory-$( printf '%s' "$common" | sed 's/[^A-Za-z0-9_-]/-/g' ).lock}
+	if [ -d "$base.d" ]; then lock="$base.d"; elif [ -e "$base" ]; then lock="$base"; fi
+	if [ -n "$lock" ]; then
+		lage=$(( ( now - $( mtime "$lock" ) ) / 60 ))
+		holders=$( printf '%s\n' "$ps_out" | grep -c '[m]ergelock\.sh' || true )
+		if [ -d "$base.d" ]; then
+			if [ "$lage" -gt 30 ] && [ "${holders:-0}" -eq 0 ]; then lstate="STALE LOCK ( older than 30 min, no mergelock.sh process: remove it with rmdir )"; else lstate="held"; fi
+		else lstate="flock file ( only held while a process runs under it; harmless )"; fi
+	fi
+	if [ "$json" -eq 1 ]; then
+		printf '%s' "$rows" | jq -R -s --argjson m "$mins" --arg lock "$lock" --arg lage "$lage" --arg ls "$lstate" '
+			{ minutes: $m, worktrees: [ split("\n")[] | select(length > 0) | split("\t") | { path: .[0], branch: .[1], lastCommitMin: (.[2] | tonumber), lastChangeMin: (.[3] | tonumber), processes: (.[4] | tonumber), verdict: .[5] } ],
+			  mergelock: ( if $lock == "" then null else { path: $lock, ageMin: ( $lage | tonumber ), state: $ls } end ) }'
+	else
+		echo "# Worktrees ( STALE: no commit and no file change for more than $mins min, no process inside )"; echo
+		echo "| Worktree | Branch | Last commit ( min ) | Last change ( min ) | Processes | Verdict |"; echo "|---|---|---|---|---|---|"
+		printf '%s' "$rows" | awk -F'\t' 'NF { printf "| %s | %s | %s | %s | %s | %s |\n", $1, $2, $3, $4, $5, $6 }'
+		echo
+		if [ -n "$lock" ]; then echo "Merge lock: $lock, $lage min old, $lstate"; else echo "Merge lock: none"; fi
+	fi
+}
+
 sub=${1:-help}; [ $# -gt 0 ] && shift
 case "$sub" in
 	tidy) cmd_tidy ;;
+	stale) cmd_stale "$@" ;;
 	state) cmd_state "$@" ;;
 	ids) cmd_ids "$@" ;;
 	list) cmd_list "$@" ;;
@@ -241,5 +300,5 @@ case "$sub" in
 	add) cmd_add "$@" ;;
 	move) cmd_move "$@" ;;
 	merged) cmd_merged "$@" ;;
-	*) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; [ "$sub" = help ] || exit 2 ;;
+	*) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; [ "$sub" = help ] || exit 2 ;;
 esac

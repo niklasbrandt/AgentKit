@@ -75,7 +75,7 @@ All in `scripts/`, called by path ( `${CLAUDE_PLUGIN_ROOT}/scripts/...` inside C
 
 | Script | Does |
 |---|---|
-| `board.sh ids <project> <owner> \| list [column] \| next \| status <n> \| add <url> "<col>" \| move <n> "<col>" \| merged <n> <sha> <branch> \| tidy \| state [--json]` | Board operations with the guards built in: never sets Done, never touches a card in Done, assigns the author on In Review and removes the assignee on leaving it. `tidy` takes stray sub-issue cards off the board. `state` prints a draft of `STATE.md` from the board in one GraphQL and one REST call. |
+| `board.sh ids <project> <owner> \| list [column] \| next \| status <n> \| add <url> "<col>" \| move <n> "<col>" \| merged <n> <sha> <branch> \| tidy \| stale [--minutes N] [--json] \| state [--json]` | Board operations with the guards built in: never sets Done, never touches a card in Done, assigns the author on In Review and removes the assignee on leaving it. `tidy` takes stray sub-issue cards off the board. `stale` ( no GitHub call ) lists every git worktree with minutes since its last commit and last file change, whether a process runs inside it, and the verdict `STALE` ( both ages over N, default 45, no process ), plus the merge lock and its age ( a lock over 30 minutes with no `mergelock.sh` process is stale ); the watchdog's eyes. `state` prints a draft of `STATE.md` from the board in one GraphQL and one REST call. |
 | `init.sh --project <n> [--lang en\|de] [--owner <handle>] [--name "<Full Name>"] [--verify "<cmd>"] [--run "<cmd>"] [--umbrella "a, b"] [--replace-existing] [--dry-run]` | What `factory-init` runs. Idempotent: sections are replaced between `<!-- factory:collaboration:start/end -->` and `<!-- factory:delegation:start/end -->` markers. Writes `.factory.json`, the labels, the `STATE.md` skeleton and its `.gitignore` line, then runs `board.sh ids`. Existing `.factory.json` values are the defaults for omitted flags. |
 | `lang.sh` | The `en` and `de` presets for column names, labels and ticket wording. Sourced by the other scripts, never run. |
 | `run.sh <timeout s> <cmd...>` | Watchdog for headless work: TERM after the timeout, then kills orphaned headless Chromes. Waits first while `headlessCap` headless browsers run or the 1-minute load is above the core count. Also for a dev server in the background ( `FACTORY_LOAD_WAIT=0` ). |
@@ -164,6 +164,7 @@ These are in the templates and skills; the short version, grouped.
 
 - **The orchestrator keeps `STATE.md`**: running agents, waits, queue, open owner decisions, limits, last hand-backs, notes, rewritten at every hand-back, spawn and owner decision. Long sessions lost exactly what was in no ticket.
 - **A fresh session reads `STATE.md`, then `board.sh state`**, and never asks the owner to open a new one: compaction plus the sheet is lossless, and shift-lead subagents keep the root session thin.
+- **A stalled agent is found by the orchestrator, not by the owner.** A finishing agent once stood for two hours with no commit, no process and no message. Builders now commit or post a line at least every 30 minutes and say what they wait on ( never more than 20 minutes on a lock or another agent unreported ); the orchestrator runs `board.sh stale` every 30 minutes, pings at 45 minutes without progress, stops and replaces the agent on the same worktree 20 minutes later, and never waits on an agent for more than an hour. `STATE.md` shows `Last progress` per agent.
 - **Usage limits pause builders; they do not kill them.** Resume each with a message after the window resets.
 
 **Budget**
@@ -199,6 +200,10 @@ These are in the templates and skills; the short version, grouped.
 MIT, see [LICENSE](LICENSE). The changelog below is the same as [CHANGELOG.md](CHANGELOG.md).
 
 ## Changelog
+
+### 0.7.3
+
+- Stalled agents are detected and replaced without the owner ( reason: a finishing agent stood for two hours with no commit, no running process and no message, and the owner noticed first ). `board.sh stale [--minutes N] [--json]`: per git worktree the minutes since the last commit and the last file change, whether a process runs inside it, the verdict `STALE`, and the merge lock with its age. Heartbeat rule for builders: a commit or a one-line note at least every 30 minutes, a one-line "waiting on X for Y" instead of silence, never more than 20 minutes on a lock or another agent without reporting. Watchdog rule for the orchestrator ( factory skill 4c ): `board.sh stale` every 30 minutes, one ping at 45 minutes without progress, stop and a successor on the same worktree 20 minutes later, never wait on an agent for more than an hour. `STATE.md`'s Running table gets a `Last progress` column ( templates, delegation templates, factory and kanban skills, README ).
 
 ### 0.7.2
 
