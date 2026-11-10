@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.10.0
+
+- Model routing extended ( reason: a full board of parallel builders on the strong models can use most of a weekly limit within a day, and the cheapest model is not good enough for work whose quality rests on form ): Sonnet never generates 3D geometry; the tier above Opus runs only when the owner asks for it by name or after several rejected revisions on Opus, only for the form-critical steps, resumed by message instead of restarted; a ticket is split into a cascade ( top tier, Opus, Sonnet ) run one after another; the model is named when a result is shown. Files: `skills/factory/SKILL.md` ( section 3 ), `templates/*/CLAUDE.delegation.md`, `README.md`.
+- Budget: the weekly limit comes before the 5-hour window. The orchestrator asks the owner for the weekly usage before a batch and each day, records it in `STATE.md` and plans against it ( above 70 %: two builders at most; above 85 %: wind down with hand-overs, nothing new without a yes ). `agentsMax` is a hard cap that counts every subagent, also under "full speed". Automated waiting notifications are answered in one line. Files: `skills/factory/SKILL.md` ( section 5 ), `templates/*/CLAUDE.delegation.md`, `README.md`.
+
 ## 0.9.2
 
 - Headless rule extended to every process that could open an audio device, not only browsers: Blender runs with `-noaudio`, ffmpeg never plays back, Python / Node audio libraries stay off ( reason: a Blender authoring run without the flag opened CoreAudio on every start and the owner heard the output device switch while all headless browsers were already muted and audio-gated ) ( templates' Branches section, factory skill 5b, README ).
