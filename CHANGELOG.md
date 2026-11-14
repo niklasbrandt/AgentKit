@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.0
+
+- `scripts/worktrees.sh`: removes merged, clean, unlocked worktrees no process works in, and merged local ( and with `--remote` remote ) branches; dry run by default; warns above `agentsMax` + 2 worktrees. Worktrees now go right after the merge, branches after Done ( reason: cleanup waited for Done, owners leave cards in review, and worktrees piled up by the dozen ). Orchestrator runs it after every hand-back.
+
 ## 0.10.0
 
 - Model routing extended ( reason: a full board of parallel builders on the strong models can use most of a weekly limit within a day, and the cheapest model is not good enough for work whose quality rests on form ): Sonnet never generates 3D geometry; the tier above Opus runs only when the owner asks for it by name or after several rejected revisions on Opus, only for the form-critical steps, resumed by message instead of restarted; a ticket is split into a cascade ( top tier, Opus, Sonnet ) run one after another; the model is named when a result is shown. Files: `skills/factory/SKILL.md` ( section 3 ), `templates/*/CLAUDE.delegation.md`, `README.md`.

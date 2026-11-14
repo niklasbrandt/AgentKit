@@ -86,6 +86,7 @@ All in `scripts/`, called by path ( `${CLAUDE_PLUGIN_ROOT}/scripts/...` inside C
 | `run.sh <timeout s> <cmd...>` | Watchdog for headless work: TERM after the timeout, then kills orphaned headless Chromes. Waits first while the headless cap is reached ( `capacity.sh`'s `headless`, re-measured while it waits; without it `headlessMax` ) or the 1-minute load is above the core count. Also for a dev server in the background ( `FACTORY_LOAD_WAIT=0` ). |
 | `verify-report.sh [--quick] [--timeout 900]` | Runs the `verify` list of `.factory.json`, each under `run.sh`, and prints a ticket section with PASS / FAIL per check in the preset's wording. `--quick` skips `"slow": true` entries. Exit 1 on any FAIL. |
 | `picdiff.mjs <A> <B> [--out dir] [--threshold 24] [--fail pct]` | Share of differing pixels between two captures or two folders of PNGs, decoded in headless Chrome, no image library. `--out` writes a sheet per pair, `--fail` makes it exit 1 above the share. |
+| `worktrees.sh [--apply] [--remote] [--json]` | Dry run by default. Removes every worktree whose HEAD is merged into a base branch ( the default branch and `umbrella` ), that is clean, unlocked and has no process working in it; deletes merged local branches; `--remote` also merged remote branches ( only with the owner's go ). Warns when more than `agentsMax` + 2 worktrees remain. |
 | `mergelock.sh <cmd...>` | One lock per repository ( keyed on the common git dir, so every worktree shares it ) around merge, verify and push: a second builder waits instead of verifying twice. |
 | `watch.sh [issue ...]` | One line per change for Claude Code's Monitor tool: a card's column, assignees or labels; a session transcript appearing, going quiet or becoming active. |
 
@@ -195,6 +196,7 @@ These are in the templates and skills; the short version, grouped.
 - **The machine is measured, not guessed.** Fixed caps ( six builders, three browsers ) stalled the owner's machine under load and left it idle at night. `capacity.sh` sets agents and headless browsers from load, memory, GPU, disk and the owner's activity before every spawn: headroom while the owner works, the full machine when idle, more than the cap when AFK, half when the owner says it is slow.
 - **Headless checks never touch the owner's machine**: muted, windowless, no audio context ( and no other headless process opens an audio device: Blender `-noaudio`, ffmpeg without playback ), one launcher, at most the measured `headless` at once and none above the core count in load. A muted headless browser that opened an audio context still made the owner's speakers pop.
 - **Headless checks never use the owner's installed browser bundle**: the OS then thinks the owner's browser is running and it will not start; use a separate build ( Chrome for Testing ) through the one launcher, path overridable by env.
+- **Worktrees are removed when their branch is merged, not when the card is Done.** Owners leave cards in review for days, and one repository collected more than ninety worktrees, each with its own dependencies, before anyone noticed. The orchestrator runs `worktrees.sh --apply` after every hand-back and checks its warning at every `STATE.md` rewrite.
 
 ## Maintaining AgentKit
 
@@ -217,6 +219,10 @@ These are in the templates and skills; the short version, grouped.
 MIT, see [LICENSE](LICENSE). The changelog below is the same as [CHANGELOG.md](CHANGELOG.md).
 
 ## Changelog
+
+### 0.11.0
+
+- `scripts/worktrees.sh`: removes merged, clean, unlocked worktrees no process works in, and merged local ( and with `--remote` remote ) branches; dry run by default; warns above `agentsMax` + 2 worktrees. Worktrees now go right after the merge, branches after Done ( reason: cleanup waited for Done, owners leave cards in review, and worktrees piled up by the dozen ). Orchestrator runs it after every hand-back.
 
 ### 0.10.0
 
