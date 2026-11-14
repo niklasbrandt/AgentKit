@@ -183,6 +183,7 @@ These are in the templates and skills; the short version, grouped.
 - **The GraphQL quota is shared.** Tooling reads issues through REST in one cached listing; `board.sh` waits for the reset by itself.
 - **No half states on the integration branch.** A phase that leaves it inconsistent waits on its branch.
 - **More agents only while they do not wait.** Parallel work is filled up to `capacity.sh`, whose queue measure stops it once agents mostly queue for the headless browsers.
+- **Look yourself before merging.** Own captures of the merged tree at the owner's poses, full-size crops, motion as sequences; a builder's downscaled sheet is not a review.
 - **A visual fix fixes every light.** Check it at every time of day and weather from the same pose before merging.
 - **Model and effort follow the work, not the agent.** Both are fixed when a subagent starts; when its scope changes, it hands over on its branch and a new agent with the fitting pair continues.
 - **Usage limits pause builders; they do not kill them.** Resume each with a message after the window resets.
@@ -224,6 +225,10 @@ These are in the templates and skills; the short version, grouped.
 MIT, see [LICENSE](LICENSE). The changelog below is the same as [CHANGELOG.md](CHANGELOG.md).
 
 ## Changelog
+
+### 0.14.1
+
+- Review: the orchestrator verifies visible changes with its own captures on the merged tree at owner-typical poses, full-size crops, each wish checked against the picture, motion as sequences ( reason: builder sheets seen downscaled and merges on numbers let defects through to the owner ). Files: `skills/factory/SKILL.md` ( section 4 ), `README.md`.
 
 ### 0.14.0
 

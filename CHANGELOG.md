@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.1
+
+- Review: the orchestrator verifies visible changes with its own captures on the merged tree at owner-typical poses, full-size crops, each wish checked against the picture, motion as sequences ( reason: builder sheets seen downscaled and merges on numbers let defects through to the owner ). Files: `skills/factory/SKILL.md` ( section 4 ), `README.md`.
+
 ## 0.14.0
 
 - `board.sh` waits for GitHub's GraphQL quota to reset ( at most `BOARD_RATE_WAIT`, default 900 s ) and retries once, instead of failing mid-hand-back; `worktrees.sh` warns about worktree paths with a space and local branches named like remote ones ( `origin/...` ). Factory skill: no half states on the integration branch ( phased tickets merge when the branch stays consistent ), an owner preview server of the integration tip pulled after every merge, the GraphQL quota rule for repository tooling ( REST, one listing, cached ), orchestrator shell loops in bash. Kanban skill: `merged <branch>` names the ticket's branch; tools test sha ancestry ( reasons: a GraphQL quota emptied by per-card calls in every build froze the board; a zsh loop left a stray `origin/<umbrella>` branch; release notes keyed on the target branch name missed every merge; a canon-only phase would have shown a half-moved world ). Files: `scripts/board.sh`, `scripts/worktrees.sh`, `skills/factory/SKILL.md`, `skills/kanban/SKILL.md`, `README.md`.
