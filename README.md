@@ -180,6 +180,8 @@ These are in the templates and skills; the short version, grouped.
 - **The orchestrator keeps `STATE.md`**: running agents, waits, queue, open owner decisions, limits, last hand-backs, notes, rewritten at every hand-back, spawn and owner decision. Long sessions lost exactly what was in no ticket.
 - **A fresh session reads `STATE.md`, then `board.sh state`**, and never asks the owner to open a new one: compaction plus the sheet is lossless, and shift-lead subagents keep the root session thin.
 - **A stalled agent is found by the orchestrator, not by the owner.** A finishing agent once stood for two hours with no commit, no process and no message. Builders now commit or post a line at least every 30 minutes and say what they wait on ( never more than 20 minutes on a lock or another agent unreported ); the orchestrator runs `board.sh stale` every 30 minutes, pings at 45 minutes without progress, stops and replaces the agent on the same worktree 20 minutes later, and never waits on an agent for more than an hour. `STATE.md` shows `Last progress` per agent.
+- **The GraphQL quota is shared.** Tooling reads issues through REST in one cached listing; `board.sh` waits for the reset by itself.
+- **No half states on the integration branch.** A phase that leaves it inconsistent waits on its branch.
 - **More agents only while they do not wait.** Parallel work is filled up to `capacity.sh`, whose queue measure stops it once agents mostly queue for the headless browsers.
 - **A visual fix fixes every light.** Check it at every time of day and weather from the same pose before merging.
 - **Model and effort follow the work, not the agent.** Both are fixed when a subagent starts; when its scope changes, it hands over on its branch and a new agent with the fitting pair continues.
@@ -222,6 +224,10 @@ These are in the templates and skills; the short version, grouped.
 MIT, see [LICENSE](LICENSE). The changelog below is the same as [CHANGELOG.md](CHANGELOG.md).
 
 ## Changelog
+
+### 0.14.0
+
+- `board.sh` waits for GitHub's GraphQL quota to reset ( at most `BOARD_RATE_WAIT`, default 900 s ) and retries once, instead of failing mid-hand-back; `worktrees.sh` warns about worktree paths with a space and local branches named like remote ones ( `origin/...` ). Factory skill: no half states on the integration branch ( phased tickets merge when the branch stays consistent ), an owner preview server of the integration tip pulled after every merge, the GraphQL quota rule for repository tooling ( REST, one listing, cached ), orchestrator shell loops in bash. Kanban skill: `merged <branch>` names the ticket's branch; tools test sha ancestry ( reasons: a GraphQL quota emptied by per-card calls in every build froze the board; a zsh loop left a stray `origin/<umbrella>` branch; release notes keyed on the target branch name missed every merge; a canon-only phase would have shown a half-moved world ). Files: `scripts/board.sh`, `scripts/worktrees.sh`, `skills/factory/SKILL.md`, `skills/kanban/SKILL.md`, `README.md`.
 
 ### 0.13.0
 

@@ -69,6 +69,9 @@ if [ "$REMOTE" = 1 ]; then
 fi
 after=$(( before - ( APPLY ? ${#removed[@]} : 0 ) )); warn=""
 [ "$after" -gt $(( AMAX + 2 )) ] && warn="$after worktrees remain, more than agentsMax + 2 = $(( AMAX + 2 )): look at the kept ones"
+# leftovers of a shell loop that did not split its words ( zsh ): a worktree path with a space in it, a local branch named like a remote one
+stray=$( { git worktree list --porcelain | sed -n 's/^worktree //p' | grep ' ' | sed 's/^/worktree path with a space: /'; git for-each-ref --format='%(refname:short)' refs/heads/origin/ | sed 's/^/local branch named like a remote one: /'; } 2>/dev/null || true )
+[ -n "$stray" ] && warn="${warn:+$warn; }$( printf '%s' "$stray" | tr '\n' ';' )"
 
 if [ "$JSON" = 1 ]; then
 	jq -n --argjson wt "$before" --arg k "$( printf '%s\n' "${kept[@]}" )" --arg r "$( printf '%s\n' "${removed[@]}" )" --argjson bd "$bdel" --argjson rd "$rdel" --arg warn "$warn" --argjson apply "$APPLY" \

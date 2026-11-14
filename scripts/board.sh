@@ -25,6 +25,31 @@ set -euo pipefail
 command -v gh >/dev/null || { echo "board.sh: gh is not installed" >&2; exit 2; }
 command -v jq >/dev/null || { echo "board.sh: jq is not installed" >&2; exit 2; }
 
+# GitHub's GraphQL quota ( 5,000 points an hour, shared by every agent and tool of the account ) runs out when many agents work the board.
+# Every gh call goes through this: on "rate limit" it waits until the quota resets ( read through REST, which does not count ), at most
+# BOARD_RATE_WAIT seconds ( default 900 ), and tries once more; otherwise it fails with the time to wait instead of a bare GraphQL error.
+gh() {
+
+	local out rc err w reset max=${BOARD_RATE_WAIT:-900} tries=0
+	err=$( mktemp )
+	while :; do
+		set +e; out=$( command gh "$@" 2>"$err" ); rc=$?; set -e
+		if [ "$rc" -ne 0 ] && grep -qi 'rate limit' "$err" && [ "$tries" -eq 0 ]; then
+			reset=$( command gh api rate_limit --jq .resources.graphql.reset 2>/dev/null || echo 0 )
+			w=$(( reset - $( date +%s ) + 5 ))
+			if [ "$w" -gt 0 ] && [ "$w" -le "$max" ]; then
+				echo "board.sh: GitHub rate limit, waiting ${w}s until it resets" >&2; sleep "$w"; tries=1; continue
+			fi
+			echo "board.sh: GitHub rate limit, resets in ${w}s ( more than BOARD_RATE_WAIT ${max}s ): run it again later" >&2
+		fi
+		break
+	done
+	cat "$err" >&2; rm -f "$err"
+	[ -n "$out" ] && printf '%s\n' "$out"
+	return "$rc"
+
+}
+
 ROOT=$( git rev-parse --show-toplevel 2>/dev/null || pwd )
 CFG=${FACTORY_JSON:-$ROOT/.factory.json}
 cfg() { # cfg <jq path> <default>

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.0
+
+- `board.sh` waits for GitHub's GraphQL quota to reset ( at most `BOARD_RATE_WAIT`, default 900 s ) and retries once, instead of failing mid-hand-back; `worktrees.sh` warns about worktree paths with a space and local branches named like remote ones ( `origin/...` ). Factory skill: no half states on the integration branch ( phased tickets merge when the branch stays consistent ), an owner preview server of the integration tip pulled after every merge, the GraphQL quota rule for repository tooling ( REST, one listing, cached ), orchestrator shell loops in bash. Kanban skill: `merged <branch>` names the ticket's branch; tools test sha ancestry ( reasons: a GraphQL quota emptied by per-card calls in every build froze the board; a zsh loop left a stray `origin/<umbrella>` branch; release notes keyed on the target branch name missed every merge; a canon-only phase would have shown a half-moved world ). Files: `scripts/board.sh`, `scripts/worktrees.sh`, `skills/factory/SKILL.md`, `skills/kanban/SKILL.md`, `README.md`.
+
 ## 0.13.0
 
 - Contention measure ( reason: the owner wants as much parallel work as possible unless it slows the whole factory down, and only the headless queue shows that ): every guarded `run.sh` start logs its queue time to `FACTORY_WAITLOG` ( default `/tmp/agentkit-runwaits.log` ); `capacity.sh` reads the last 30 minutes ( measure `queue`, JSON `queue_runs_30m`, `queue_waited_30m`, `queue_longest_s` ) and lowers `agents` by 1 when half the runs queued a minute or one queued 5 minutes, by 2 when 80 % queued and one 10 minutes. The factory skill fills up to the recommendation when the owner asks for more parallelism. Files: `scripts/run.sh`, `scripts/capacity.sh`, `skills/factory/SKILL.md` ( section 2 ), `README.md`.

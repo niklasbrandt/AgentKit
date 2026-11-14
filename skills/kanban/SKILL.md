@@ -114,6 +114,8 @@ board.sh status <issue>               # column, assignees, labels (read-only)
 board.sh add <issue-url> "<column>"   # put an issue on the board
 board.sh move <issue> "<column>"      # reads the status first; refuses Done (as target or source); In Review assigns the author, leaving it removes the assignee
 board.sh merged <issue> <sha> <branch>  # **Merged:** line + label merged + author as assignee
+# <branch> is the ticket's own branch, not the target. Tools that need "is this ticket in the build" ( release notes, changelogs )
+# test the sha's ancestry ( git merge-base --is-ancestor <sha> HEAD ), never the branch name.
 board.sh tidy                         # cards without a column whose issue is a sub-issue: off the board
 board.sh stale [--minutes N] [--json]  # per worktree: last commit / last change ( min ), processes, verdict STALE ( default N = 45 ); the merge lock and its age (read-only)
 board.sh state [--json]               # draft of STATE.md: In Progress (Agent), In Review + merged with the merged line, Ready top 10, Backlog top 5,
