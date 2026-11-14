@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.1
+
+- Review: a visual fix is checked under every condition the app renders ( every time of day and weather, same pose ), not only the reported one; a one-light sheet goes back ( reason: a haze fix verified at noon reappeared at dusk ). Files: `skills/factory/SKILL.md` ( section 4 ), `README.md`.
+
 ## 0.12.0
 
 - Effort is a second dial next to the model, set on every spawn ( `low` deployers and bookkeeping, `medium` mechanical work, `high` builders and judgement, `xhigh` foundations or a fix that failed at `high` ), and both are re-routed when a subagent's scope changes: model and effort are fixed at spawn and a message keeps them, so the agent stops at a hand-over file and the next part starts as a new agent with the fitting pair; resume by message only while both still fit ( reason: agents kept on their starting model after the scope changed did geometry on a model too weak for it, or spent the strong model on bookkeeping ). `STATE.md` records model / effort per agent. Files: `skills/factory/SKILL.md` ( section 3, review ), `templates/*/CLAUDE.delegation.md`, `templates/*/AGENTS.collaboration.md`, `templates/STATE.md`, `README.md`.

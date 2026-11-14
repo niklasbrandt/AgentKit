@@ -180,6 +180,7 @@ These are in the templates and skills; the short version, grouped.
 - **The orchestrator keeps `STATE.md`**: running agents, waits, queue, open owner decisions, limits, last hand-backs, notes, rewritten at every hand-back, spawn and owner decision. Long sessions lost exactly what was in no ticket.
 - **A fresh session reads `STATE.md`, then `board.sh state`**, and never asks the owner to open a new one: compaction plus the sheet is lossless, and shift-lead subagents keep the root session thin.
 - **A stalled agent is found by the orchestrator, not by the owner.** A finishing agent once stood for two hours with no commit, no process and no message. Builders now commit or post a line at least every 30 minutes and say what they wait on ( never more than 20 minutes on a lock or another agent unreported ); the orchestrator runs `board.sh stale` every 30 minutes, pings at 45 minutes without progress, stops and replaces the agent on the same worktree 20 minutes later, and never waits on an agent for more than an hour. `STATE.md` shows `Last progress` per agent.
+- **A visual fix fixes every light.** Check it at every time of day and weather from the same pose before merging.
 - **Model and effort follow the work, not the agent.** Both are fixed when a subagent starts; when its scope changes, it hands over on its branch and a new agent with the fitting pair continues.
 - **Usage limits pause builders; they do not kill them.** Resume each with a message after the window resets.
 
@@ -220,6 +221,10 @@ These are in the templates and skills; the short version, grouped.
 MIT, see [LICENSE](LICENSE). The changelog below is the same as [CHANGELOG.md](CHANGELOG.md).
 
 ## Changelog
+
+### 0.12.1
+
+- Review: a visual fix is checked under every condition the app renders ( every time of day and weather, same pose ), not only the reported one; a one-light sheet goes back ( reason: a haze fix verified at noon reappeared at dusk ). Files: `skills/factory/SKILL.md` ( section 4 ), `README.md`.
 
 ### 0.12.0
 
