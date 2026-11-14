@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.0
+
+- Effort is a second dial next to the model, set on every spawn ( `low` deployers and bookkeeping, `medium` mechanical work, `high` builders and judgement, `xhigh` foundations or a fix that failed at `high` ), and both are re-routed when a subagent's scope changes: model and effort are fixed at spawn and a message keeps them, so the agent stops at a hand-over file and the next part starts as a new agent with the fitting pair; resume by message only while both still fit ( reason: agents kept on their starting model after the scope changed did geometry on a model too weak for it, or spent the strong model on bookkeeping ). `STATE.md` records model / effort per agent. Files: `skills/factory/SKILL.md` ( section 3, review ), `templates/*/CLAUDE.delegation.md`, `templates/*/AGENTS.collaboration.md`, `templates/STATE.md`, `README.md`.
+
 ## 0.11.0
 
 - `scripts/worktrees.sh`: removes merged, clean, unlocked worktrees no process works in, and merged local ( and with `--remote` remote ) branches; dry run by default; warns above `agentsMax` + 2 worktrees. Worktrees now go right after the merge, branches after Done ( reason: cleanup waited for Done, owners leave cards in review, and worktrees piled up by the dozen ). Orchestrator runs it after every hand-back.

@@ -6,7 +6,7 @@ The orchestrator's state sheet ( AgentKit ). Local to this machine, gitignored. 
 
 Shift lead: <agent / none>
 
-| Ticket | Title | Agent / model | Worktree | Ports | Started | Last progress | Phase |
+| Ticket | Title | Agent / model / effort | Worktree | Ports | Started | Last progress | Phase |
 |---|---|---|---|---|---|---|---|
 
 ## Waiting

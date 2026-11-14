@@ -12,6 +12,7 @@ AGENTS.md's Autonomy section, done with Claude Code's tools. The plugin's `facto
   `xhigh` for foundations that later work builds on ( a new API, coordinate maths ), `medium` for small mechanical
   tickets on Sonnet. A plan may set it per milestone; that wins. An orchestrating
   session itself runs at `high` and raises it only for a real judgement call ( reviewing an API, a milestone that missed its target ).
+- Model and effort are fixed when an agent starts; a message keeps both. When a subagent's scope changes ( a bug turns out to need geometry, the build is done and only verify and merge are left, a fix failed at `high` ), have it stop at a hand-over file on its branch and start the next part as a new agent with the model and effort that part needs; resume by message only while both still fit. Record model / effort per agent in `STATE.md`.
 - Before starting one, check ListAgents: don't duplicate a session {{OWNER_NAME}} already opened. A peer session's transcript is
   `~/.claude/projects/{{TRANSCRIPT_DIR}}/<session id>.jsonl` ( read-only ): read its end to tell finished from waiting for an answer.
 - Subagent prompts must say "assume and record under **Assumptions** in the ticket, don't ask" ( AGENTS.md, Autonomy: assumptions over questions ); reports to {{OWNER_NAME}} over several tickets are a bullet list, one bullet per ticket with the number, the title and one sentence on what the ticket is, never two tickets in one paragraph ( AGENTS.md, Autonomy ); read each builder's assumptions in review and list them in your report to {{OWNER_NAME}}.
