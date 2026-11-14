@@ -180,6 +180,7 @@ These are in the templates and skills; the short version, grouped.
 - **The orchestrator keeps `STATE.md`**: running agents, waits, queue, open owner decisions, limits, last hand-backs, notes, rewritten at every hand-back, spawn and owner decision. Long sessions lost exactly what was in no ticket.
 - **A fresh session reads `STATE.md`, then `board.sh state`**, and never asks the owner to open a new one: compaction plus the sheet is lossless, and shift-lead subagents keep the root session thin.
 - **A stalled agent is found by the orchestrator, not by the owner.** A finishing agent once stood for two hours with no commit, no process and no message. Builders now commit or post a line at least every 30 minutes and say what they wait on ( never more than 20 minutes on a lock or another agent unreported ); the orchestrator runs `board.sh stale` every 30 minutes, pings at 45 minutes without progress, stops and replaces the agent on the same worktree 20 minutes later, and never waits on an agent for more than an hour. `STATE.md` shows `Last progress` per agent.
+- **More agents only while they do not wait.** Parallel work is filled up to `capacity.sh`, whose queue measure stops it once agents mostly queue for the headless browsers.
 - **A visual fix fixes every light.** Check it at every time of day and weather from the same pose before merging.
 - **Model and effort follow the work, not the agent.** Both are fixed when a subagent starts; when its scope changes, it hands over on its branch and a new agent with the fitting pair continues.
 - **Usage limits pause builders; they do not kill them.** Resume each with a message after the window resets.
@@ -221,6 +222,10 @@ These are in the templates and skills; the short version, grouped.
 MIT, see [LICENSE](LICENSE). The changelog below is the same as [CHANGELOG.md](CHANGELOG.md).
 
 ## Changelog
+
+### 0.13.0
+
+- Contention measure ( reason: the owner wants as much parallel work as possible unless it slows the whole factory down, and only the headless queue shows that ): every guarded `run.sh` start logs its queue time to `FACTORY_WAITLOG` ( default `/tmp/agentkit-runwaits.log` ); `capacity.sh` reads the last 30 minutes ( measure `queue`, JSON `queue_runs_30m`, `queue_waited_30m`, `queue_longest_s` ) and lowers `agents` by 1 when half the runs queued a minute or one queued 5 minutes, by 2 when 80 % queued and one 10 minutes. The factory skill fills up to the recommendation when the owner asks for more parallelism. Files: `scripts/run.sh`, `scripts/capacity.sh`, `skills/factory/SKILL.md` ( section 2 ), `README.md`.
 
 ### 0.12.1
 

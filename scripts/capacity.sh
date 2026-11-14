@@ -16,6 +16,9 @@
 #   GPU utilisation > 70 %      headless -1 ( > 60 % while the owner is active );  > 90 %: headless 1
 #   thermal limit < 100 %       agents -1
 #   disk MB/s > "diskMBs"       agents -1   ( .factory.json, default 1500, an NVMe drive under heavy use )
+#   contention                  agents -1 when, over the last 30 min ( at least 3 guarded run.sh starts in FACTORY_WAITLOG, default
+#                               /tmp/agentkit-runwaits.log ), half the runs queued 60 s or more or one queued 5 min; agents -2 when 80 % queued
+#                               and one 10 min. More agents then only add waiting: the whole factory gets slower, not faster.
 # Never below 1 agent and 1 headless browser. free_headless = headless minus the headless browsers already running ( never below 0 ).
 # --json: { agents, headless, free_headless, reasons, owner: "active" | "idle Nm" | "afk", measures: { … }, caps: { … } }. Always exits 0.
 # FACTORY_JSON overrides the config path. FACTORY_OWNER=afk|active or the file /tmp/factory-owner ( "afk" / "active", afk ignored after 12 h ) overrides the owner measurement.
@@ -106,6 +109,13 @@ if [ $DISK = 1 ]; then
 	fi
 fi
 
+# contention: the queue times of guarded run.sh starts in the last 30 minutes
+WLOG=${FACTORY_WAITLOG:-/tmp/agentkit-runwaits.log}
+QN=0; QW=0; QMAX=0
+if [ -r "$WLOG" ]; then
+	read -r QN QW QMAX < <( awk -v since=$(( $( date +%s ) - 1800 )) '$1 >= since { n++; if ( $2 >= 60 ) w++; if ( $2 > m ) m = $2 } END { printf "%d %d %d\n", n, w, m }' "$WLOG" )
+fi
+
 # recommendation
 AG=$AMAX; HL=$HMAX; R=(); GT=70
 [ "$OWNER" = active ] && GT=60
@@ -131,6 +141,10 @@ if [ "$OWNER" = active ]; then
 fi
 num "$THERM" && [ "$THERM" -lt 100 ] && { AG=$(( AG - 1 )); R+=( "thermal limit $THERM %: agents -1" ); }
 num "$DMBS" && [ "$DMBS" -gt "$DTH" ] && { AG=$(( AG - 1 )); R+=( "disk $DMBS MB/s > $DTH: agents -1" ); }
+if [ "$QN" -ge 3 ]; then
+	if [ $(( QW * 10 )) -ge $(( QN * 8 )) ] && [ "$QMAX" -ge 600 ]; then AG=$(( AG - 2 )); R+=( "contention: $QW of $QN runs queued >= 60 s, longest ${QMAX}s: agents -2" )
+	elif [ $(( QW * 2 )) -ge "$QN" ] || [ "$QMAX" -ge 300 ]; then AG=$(( AG - 1 )); R+=( "contention: $QW of $QN runs queued >= 60 s, longest ${QMAX}s: agents -1" ); fi
+fi
 [ "$AG" -lt 1 ] && AG=1
 [ "$HL" -lt 1 ] && HL=1
 FH=$(( HL - BROWSERS )); [ "$FH" -lt 0 ] && FH=0
@@ -144,8 +158,8 @@ if [ $JSON = 1 ]; then
 	printf ' ], "owner": "%s", "measures": { "owner_idle_s": %s, "owner_ports_busy": [%s],' "$OWNER" "$IDLE" "$( printf '%s' "$BUSYP" | sed 's/ /, /g' )"
 	printf ' "cores": %s, "load1": %s, "thermal_limit": %s, "memory": %s, "memory_free_pct": %s, "swap_used_mb": %s,' \
 		"$( jn "$CORES" )" "$( jn "$LOAD" )" "$( jn "$THERM" )" "$( js "$MEM" )" "$( jn "$FREE" )" "$( jn "$SWAP" )"
-	printf ' "gpu_device_pct": %s, "gpu_renderer_pct": %s, "headless_running": %s, "disk_mbs": %s, "disk_tps": %s },' \
-		"$( jn "$GDEV" )" "$( jn "$GREN" )" "$BROWSERS" "$( jn "$DMBS" )" "$( jn "$DTPS" )"
+	printf ' "gpu_device_pct": %s, "gpu_renderer_pct": %s, "headless_running": %s, "disk_mbs": %s, "disk_tps": %s, "queue_runs_30m": %s, "queue_waited_30m": %s, "queue_longest_s": %s },' \
+		"$( jn "$GDEV" )" "$( jn "$GREN" )" "$BROWSERS" "$( jn "$DMBS" )" "$( jn "$DTPS" )" "$QN" "$QW" "$QMAX"
 	printf ' "caps": { "agentsMax": %s, "headlessMax": %s, "diskMBs": %s, "idleMinutes": %s, "afkMinutes": %s }, "at": "%s" }\n' "$AMAX" "$HMAX" "$DTH" "$IMIN" "$AMIN" "$( date '+%Y-%m-%d %H:%M' )"
 	exit 0
 fi
@@ -160,6 +174,7 @@ printf '  %-10s %-42s %s\n' measure value threshold \
 	gpu "device $( q "$GDEV" ) %, renderer $( q "$GREN" ) %" "> $GT: headless -1; > 90: headless 1" \
 	browsers "$BROWSERS headless running" "running >= headless: no free slot" \
 	disk "$( q "$DMBS" ) MB/s, $( q "$DTPS" ) tps" "> $DTH MB/s: agents -1" \
+	queue "$QN runs in 30 min, $QW queued >= 60 s, longest ${QMAX}s" "half queued or 5 min: agents -1; 80 % and 10 min: -2" \
 	caps "agentsMax $AMAX, headlessMax $HMAX" "" \
 	owner "$OWNER ( input $(( IDLE / 60 )) min ago; ports ${BUSYP:-none} busy of ${OPORTS:-none} )" "active < $IMIN min: agents -2, headless -2, GPU 60 %; afk >= $AMIN min: agents +2"
 for r in "${R[@]}"; do echo "  - $r"; done

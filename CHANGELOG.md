@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.13.0
+
+- Contention measure ( reason: the owner wants as much parallel work as possible unless it slows the whole factory down, and only the headless queue shows that ): every guarded `run.sh` start logs its queue time to `FACTORY_WAITLOG` ( default `/tmp/agentkit-runwaits.log` ); `capacity.sh` reads the last 30 minutes ( measure `queue`, JSON `queue_runs_30m`, `queue_waited_30m`, `queue_longest_s` ) and lowers `agents` by 1 when half the runs queued a minute or one queued 5 minutes, by 2 when 80 % queued and one 10 minutes. The factory skill fills up to the recommendation when the owner asks for more parallelism. Files: `scripts/run.sh`, `scripts/capacity.sh`, `skills/factory/SKILL.md` ( section 2 ), `README.md`.
+
 ## 0.12.1
 
 - Review: a visual fix is checked under every condition the app renders ( every time of day and weather, same pose ), not only the reported one; a one-light sheet goes back ( reason: a haze fix verified at noon reappeared at dusk ). Files: `skills/factory/SKILL.md` ( section 4 ), `README.md`.

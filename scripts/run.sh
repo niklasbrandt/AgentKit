@@ -9,6 +9,7 @@
 # owner's browser. The cap is the recommended "headless" of capacity.sh ( measured: GPU, memory, browsers running ), re-measured while it
 # waits; without capacity.sh or jq it is "headlessMax" ( alias "headlessCap", .factory.json, default 4 ). HEADLESS_CAP=<n> overrides both.
 # The cap counts browsers of the testing build ( Chrome for Testing in a cache folder ), never the owner's installed browser bundle.
+# Each guarded run appends its queue time to FACTORY_WAITLOG ( default /tmp/agentkit-runwaits.log ), read by capacity.sh ( contention ).
 # FACTORY_CHROME_PATTERN overrides the pattern that identifies the Chromes ( default: puppeteer_dev_chrome_profile ).
 if [ $# -lt 2 ]; then echo "usage: run.sh <timeout s> <command> [args...]" >&2; exit 2; fi
 T=$1; shift
@@ -31,11 +32,14 @@ load1() { { sysctl -n vm.loadavg 2>/dev/null || cat /proc/loadavg 2>/dev/null; }
 # one browser = one profile directory, however many helper processes it has
 browsers() { ps -axo command 2>/dev/null | grep -o "${PATTERN}[^ ]*" | sort -u | wc -l | tr -d ' '; }
 busy() { NOWCAP=$( cap ); [ "$( awk -v l="$( load1 )" -v c="$CORES" 'BEGIN { print ( l > c ) }' )" = 1 ] || [ "$( browsers )" -ge "$NOWCAP" ]; }
+t0=$( date +%s )
 if [ "$WAIT" -gt 0 ] && busy; then
 	echo "run.sh: waiting ( load $( load1 ) / $CORES cores, $( browsers ) / $NOWCAP headless browsers ), at most ${WAIT}s" >&2
-	end=$(( $( date +%s ) + WAIT ))
+	end=$(( t0 + WAIT ))
 	while busy && [ "$( date +%s )" -lt "$end" ]; do sleep 10; done
 fi
+# every guarded run logs how long it queued ( "<epoch> <seconds>" ): capacity.sh reads it to see whether more agents only add waiting
+[ "$WAIT" -gt 0 ] && echo "$t0 $(( $( date +%s ) - t0 ))" >> "${FACTORY_WAITLOG:-/tmp/agentkit-runwaits.log}" 2>/dev/null
 
 "$@" &
 P=$!
