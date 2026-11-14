@@ -6,7 +6,7 @@
       "name": "agentkit",
       "source": "./",
       "description": "AgentKit: run any repository as a dark factory. Kanban board workflow, orchestrator loop and repo init for Claude Code.",
-      "version": "0.14.1"
+      "version": "0.14.2"
     }
   ]
 }

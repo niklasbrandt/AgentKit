@@ -226,6 +226,10 @@ MIT, see [LICENSE](LICENSE). The changelog below is the same as [CHANGELOG.md](C
 
 ## Changelog
 
+### 0.14.2
+
+- Factory skill: reports name files as clickable markdown links with full paths and show two or three of the latest pictures inline; finished tickets are merged at once, a freeze stops only new starts; geometry tickets need back-face and coplanar / z-fight numbers and views from all sides before merge ( reasons: owner feedback on unreadable paths, invisible progress, finished work held back by a freeze, and inverted faces / z-fighting as the most frequent geometry defects ). AgentKit is the single source of truth for these working rules; per-project memories no longer repeat them. Files: `skills/factory/SKILL.md`, `README.md`.
+
 ### 0.14.1
 
 - Review: the orchestrator verifies visible changes with its own captures on the merged tree at owner-typical poses, full-size crops, each wish checked against the picture, motion as sequences ( reason: builder sheets seen downscaled and merges on numbers let defects through to the owner ). Files: `skills/factory/SKILL.md` ( section 4 ), `README.md`.
